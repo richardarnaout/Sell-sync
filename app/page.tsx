@@ -128,6 +128,7 @@ export default function VintedAI() {
   const [templateName, setTemplateName]       = useState('');
   const [templateSearch, setTemplateSearch]   = useState('');
   const [templateImage, setTemplateImage]     = useState<string>('');
+  const [templatesOpen, setTemplatesOpen]     = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef   = useRef<HTMLInputElement>(null);
   const [importMsg, setImportMsg] = useState<string | null>(null);
@@ -1023,9 +1024,21 @@ export default function VintedAI() {
             <input ref={templateJsonRef} type="file" accept=".json" className="hidden" onChange={importTemplates} />
             <div className="mb-5">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color:'rgba(255,255,255,0.3)' }}>
-                  Mes modèles
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setTemplatesOpen(o => !o)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                  style={{ background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.2)', color:'#a5b4fc' }}
+                >
+                  <Tag className="w-3.5 h-3.5" />
+                  Mes modèles enregistrés
+                  {templates.length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold" style={{ background:'rgba(99,102,241,0.25)', color:'#c4b5fd' }}>{templates.length}</span>
+                  )}
+                  <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${templatesOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
                 <div className="flex gap-1.5">
                   <button type="button" onClick={() => templateJsonRef.current?.click()}
                     className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition"
@@ -1041,54 +1054,60 @@ export default function VintedAI() {
                   )}
                 </div>
               </div>
-            {templates.length > 0 && (
-              <div>
-                {/* Barre de recherche */}
-                <div className="relative mb-3">
-                  <input
-                    type="text"
-                    placeholder="Rechercher un modèle..."
-                    value={templateSearch}
-                    onChange={e => setTemplateSearch(e.target.value)}
-                    className="field-input w-full rounded-xl pl-8 pr-4 py-2 text-xs"
-                  />
-                  <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color:'rgba(255,255,255,0.25)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle cx="11" cy="11" r="8" strokeWidth="2"/><path d="m21 21-4.35-4.35" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                  {templateSearch && (
-                    <button onClick={() => setTemplateSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/60 transition">
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-                {/* Liste filtrée */}
-                {(() => {
-                  const filtered = templates.filter(t => t.name.toLowerCase().includes(templateSearch.toLowerCase()));
-                  return filtered.length > 0 ? (
-                    <div className="flex gap-2 flex-wrap">
-                      {filtered.map(t => (
-                        <div key={t.id} className="flex items-center gap-1 pr-1.5 py-1.5 rounded-xl text-xs font-semibold transition-all"
-                          style={{ background:'rgba(99,102,241,0.12)', border:'1px solid rgba(99,102,241,0.25)', color:'#a5b4fc', paddingLeft: t.image ? '4px' : '12px' }}>
-                          <button onClick={() => { applyTemplate(t); setTemplateSearch(''); }} className="flex items-center gap-2 hover:text-white transition">
-                            {t.image && (
-                              <img src={t.image} className="w-7 h-7 rounded-lg object-cover shrink-0" />
-                            )}
-                            <span>{t.name}</span>
-                            {t.purchasePrice && <span className="opacity-50 font-normal">{t.purchasePrice}€</span>}
-                          </button>
-                          <button onClick={() => deleteTemplate(t.id)}
-                            className="ml-1 opacity-30 hover:opacity-80 hover:text-red-400 transition p-0.5 rounded">
+              {templatesOpen && (
+                <div className="mt-3">
+                  {templates.length === 0 ? (
+                    <p className="text-xs text-white/20 px-1">Aucun modèle enregistré.</p>
+                  ) : (
+                    <>
+                      {/* Barre de recherche */}
+                      <div className="relative mb-3">
+                        <input
+                          type="text"
+                          placeholder="Rechercher un modèle..."
+                          value={templateSearch}
+                          onChange={e => setTemplateSearch(e.target.value)}
+                          className="field-input w-full rounded-xl pl-8 pr-4 py-2 text-xs"
+                        />
+                        <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color:'rgba(255,255,255,0.25)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <circle cx="11" cy="11" r="8" strokeWidth="2"/><path d="m21 21-4.35-4.35" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                        {templateSearch && (
+                          <button onClick={() => setTemplateSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/60 transition">
                             <X className="w-3 h-3" />
                           </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-white/20">Aucun modèle trouvé pour "{templateSearch}"</p>
-                  );
-                })()}
-              </div>
-            )}
+                        )}
+                      </div>
+                      {/* Liste filtrée */}
+                      {(() => {
+                        const filtered = templates.filter(t => t.name.toLowerCase().includes(templateSearch.toLowerCase()));
+                        return filtered.length > 0 ? (
+                          <div className="flex gap-2 flex-wrap">
+                            {filtered.map(t => (
+                              <div key={t.id} className="flex items-center gap-1 pr-1.5 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                                style={{ background:'rgba(99,102,241,0.12)', border:'1px solid rgba(99,102,241,0.25)', color:'#a5b4fc', paddingLeft: t.image ? '4px' : '12px' }}>
+                                <button onClick={() => { applyTemplate(t); setTemplateSearch(''); setTemplatesOpen(false); }} className="flex items-center gap-2 hover:text-white transition">
+                                  {t.image && (
+                                    <img src={t.image} className="w-7 h-7 rounded-lg object-cover shrink-0" />
+                                  )}
+                                  <span>{t.name}</span>
+                                  {t.purchasePrice && <span className="opacity-50 font-normal">{t.purchasePrice}€</span>}
+                                </button>
+                                <button onClick={() => deleteTemplate(t.id)}
+                                  className="ml-1 opacity-30 hover:opacity-80 hover:text-red-400 transition p-0.5 rounded">
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-white/20">Aucun modèle trouvé pour "{templateSearch}"</p>
+                        );
+                      })()}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {formError && (
