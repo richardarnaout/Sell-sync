@@ -861,18 +861,20 @@ export default function VintedAI() {
                     <div className="card rounded-2xl p-5">
                       <p className="text-sm font-bold text-white mb-1">Par catégorie</p>
                       <p className="text-[11px] text-white/30 mb-4">Répartition du chiffre d'affaires</p>
-                      <div className="flex gap-6 items-center">
-                        <ResponsiveContainer width="45%" height={180}>
-                          <PieChart>
-                            <Pie data={byCat} dataKey="revenue" nameKey="name" cx="50%" cy="50%" outerRadius={80} paddingAngle={3} innerRadius={40}>
-                              {byCat.map((entry) => (
-                                <Cell key={entry.name} fill={CAT_COLORS[entry.name] ?? '#6366f1'} opacity={0.85} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(v) => fmtPlain(Number(v))} contentStyle={{ background:'#12141f', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, color:'white', fontSize:12 }} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="flex-1 space-y-2">
+                      <div className="flex flex-col sm:flex-row gap-6 items-center">
+                        <div className="w-full sm:w-[45%] shrink-0">
+                          <ResponsiveContainer width="100%" height={180}>
+                            <PieChart>
+                              <Pie data={byCat} dataKey="revenue" nameKey="name" cx="50%" cy="50%" outerRadius={80} paddingAngle={3} innerRadius={40}>
+                                {byCat.map((entry) => (
+                                  <Cell key={entry.name} fill={CAT_COLORS[entry.name] ?? '#6366f1'} opacity={0.85} />
+                                ))}
+                              </Pie>
+                              <Tooltip formatter={(v) => fmtPlain(Number(v))} contentStyle={{ background:'#12141f', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, color:'white', fontSize:12 }} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="w-full sm:flex-1 space-y-2">
                           {byCat.map(c => (
                             <div key={c.name} className="flex items-center justify-between text-xs">
                               <div className="flex items-center gap-2">
