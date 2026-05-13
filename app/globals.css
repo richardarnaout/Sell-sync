@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  -webkit-font-smoothing: antialiased;
+  font-family: 'Inter', sans-serif;
+}
+
+/* ── Animations ── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+@keyframes bar-fill {
+  from { width: 0%; }
+  to   { width: var(--bar-width); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.35); }
+  70%  { box-shadow: 0 0 0 10px rgba(99,102,241,0); }
+  100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+}
+
+.animate-fade-slide-up { animation: fadeSlideUp 0.45s cubic-bezier(0.22,1,0.36,1) forwards; }
+.animate-fade-in       { animation: fadeIn 0.3s ease forwards; }
+.animate-scale-in      { animation: scaleIn 0.28s cubic-bezier(0.22,1,0.36,1) forwards; }
+.animate-slide-up      { animation: slideUp 0.38s cubic-bezier(0.32,0.72,0,1) forwards; }
+.animate-float         { animation: float 3s ease-in-out infinite; }
+.animate-pulse-ring    { animation: pulse-ring 2s ease-out infinite; }
+
+.bar-animate {
+  animation: bar-fill 1s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 99px; }
+.scrollbar-hide { scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ── Card surface ── */
+.card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.card-solid {
+  background: rgba(17,19,31,0.85);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+/* ── Tab active indicator ── */
+.tab-active {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  box-shadow: 0 4px 18px rgba(99,102,241,0.4);
+}
+
+/* ── Input ── */
+.field-input {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: white;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.field-input:focus {
+  outline: none;
+  border-color: rgba(99,102,241,0.6);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+.field-input::placeholder { color: rgba(255,255,255,0.2); }
+.field-input[type=number]::-webkit-inner-spin-button,
+.field-input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.field-input[type=number] { -moz-appearance: textfield; }
+
+/* ── Recharts custom tooltip ── */
+.recharts-default-tooltip {
+  background: #12141f !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 12px !important;
+  color: white !important;
+}
