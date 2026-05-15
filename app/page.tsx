@@ -30,11 +30,13 @@ interface Sale {
   salePrice: number;
   shippingCost: number;
   boosterCost: number;
+  productUrl?: string;
 }
 
 interface FormState {
   article: string; category: string; size: string; date: string;
   purchasePrice: string; salePrice: string; shippingCost: string; boosterCost: string;
+  productUrl: string;
 }
 
 interface Template {
@@ -80,6 +82,7 @@ function parseDate(str: string) { const [y,m,d] = str.split('-').map(Number); re
 const emptyForm = (): FormState => ({
   article:'', category:'Autre', size:'', date: today(),
   purchasePrice:'', salePrice:'', shippingCost:'', boosterCost:'',
+  productUrl:'',
 });
 
 // ── DB mapping ────────────────────────────────────────────────────────────
@@ -90,6 +93,7 @@ function saleToDb(s: Sale, userId: string) {
     category: s.category, size: s.size,
     purchase_price: s.purchasePrice, sale_price: s.salePrice,
     shipping_cost: s.shippingCost, booster_cost: s.boosterCost,
+    product_url: s.productUrl || null,
   };
 }
 function dbToSale(row: any): Sale {
@@ -100,6 +104,7 @@ function dbToSale(row: any): Sale {
     salePrice: Number(row.sale_price) || 0,
     shippingCost: Number(row.shipping_cost) || 0,
     boosterCost: Number(row.booster_cost) || 0,
+    productUrl: row.product_url || undefined,
   };
 }
 function templateToDb(t: Template, userId: string) {
@@ -173,7 +178,6 @@ export default function VintedAI() {
   const [templateName, setTemplateName]       = useState('');
   const [templateSearch, setTemplateSearch]   = useState('');
   const [templateImage, setTemplateImage]     = useState<string>('');
-  const [templateUrl, setTemplateUrl]         = useState<string>('');
   const [templatesOpen, setTemplatesOpen]     = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef   = useRef<HTMLInputElement>(null);
@@ -426,6 +430,7 @@ export default function VintedAI() {
       salePrice:     String(s.salePrice),
       shippingCost:  s.shippingCost  ? String(s.shippingCost)  : '',
       boosterCost:   s.boosterCost   ? String(s.boosterCost)   : '',
+      productUrl:    s.productUrl ?? '',
     });
     setFormError(''); setShowForm(true);
   }, []);
@@ -440,6 +445,7 @@ export default function VintedAI() {
       purchasePrice: t.purchasePrice,
       shippingCost:  t.shippingCost,
       boosterCost:   t.boosterCost,
+      productUrl:    t.productUrl ?? '',
       salePrice:     '',
     }));
     setSavingTemplate(false);
@@ -456,13 +462,12 @@ export default function VintedAI() {
       shippingCost:  form.shippingCost,
       boosterCost:   form.boosterCost,
       image:         templateImage || undefined,
-      productUrl:    templateUrl.trim() || undefined,
+      productUrl:    form.productUrl.trim() || undefined,
     };
     setTemplates(prev => [...prev, t]);
     setSavingTemplate(false);
     setTemplateName('');
     setTemplateImage('');
-    setTemplateUrl('');
     await supabase.from('templates').insert(templateToDb(t, user.id));
   };
 
@@ -494,6 +499,7 @@ export default function VintedAI() {
       purchasePrice: parseFloat(form.purchasePrice) || 0, salePrice: sp,
       shippingCost:  parseFloat(form.shippingCost)  || 0,
       boosterCost:   parseFloat(form.boosterCost)   || 0,
+      productUrl:    form.productUrl.trim() || undefined,
     };
     if (editId) {
       const sale = { ...sales.find(s => s.id === editId)!, ...updated };
@@ -757,6 +763,14 @@ export default function VintedAI() {
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 flex-wrap">
                                         <p className="font-semibold text-white text-sm truncate">{s.article}</p>
+                                        {s.productUrl && (
+                                          <a href={s.productUrl} target="_blank" rel="noopener noreferrer"
+                                            onClick={e => e.stopPropagation()}
+                                            title="Ouvrir le lien du produit"
+                                            className="shrink-0 text-indigo-300/70 hover:text-indigo-300 transition p-0.5 rounded">
+                                            <ExternalLink className="w-3.5 h-3.5" />
+                                          </a>
+                                        )}
                                         <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0"
                                           style={{ background:`${CAT_COLORS[s.category] ?? '#6366f1'}22`, color: CAT_COLORS[s.category] ?? '#818cf8', border:`1px solid ${CAT_COLORS[s.category] ?? '#6366f1'}44` }}>
                                           {s.category}
@@ -1221,6 +1235,15 @@ export default function VintedAI() {
                   className="field-input w-full rounded-xl px-4 py-3 text-sm" />
               </FormField>
 
+              <FormField label="Lien produit (optionnel)">
+                <div className="relative">
+                  <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+                  <input type="url" placeholder="https://..." value={form.productUrl}
+                    onChange={e => setForm({...form, productUrl:e.target.value})}
+                    className="field-input w-full rounded-xl pl-9 pr-3 py-3 text-sm" />
+                </div>
+              </FormField>
+
               <FormField label="Catégorie">
                 <div className="flex flex-wrap gap-2">
                   {CATEGORIES.map(c => (
@@ -1327,23 +1350,13 @@ export default function VintedAI() {
                         )}
                       </div>
 
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-widest mb-1.5" style={{ color:'rgba(255,255,255,0.3)' }}>Lien produit (optionnel)</p>
-                        <div className="relative">
-                          <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
-                          <input type="url" placeholder="https://..." value={templateUrl}
-                            onChange={e => setTemplateUrl(e.target.value)}
-                            className="field-input w-full rounded-xl pl-9 pr-3 py-2.5 text-sm" />
-                        </div>
-                      </div>
-
                       <div className="flex gap-2">
                         <button type="button" onClick={saveTemplate}
                           className="flex-1 py-2 rounded-xl text-xs font-bold text-white transition"
                           style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
                           Sauvegarder
                         </button>
-                        <button type="button" onClick={() => { setSavingTemplate(false); setTemplateImage(''); setTemplateUrl(''); }}
+                        <button type="button" onClick={() => { setSavingTemplate(false); setTemplateImage(''); }}
                           className="px-4 py-2 rounded-xl text-xs font-semibold transition"
                           style={{ background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.4)' }}>
                           Annuler
