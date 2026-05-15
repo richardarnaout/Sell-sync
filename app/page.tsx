@@ -10,6 +10,7 @@ import {
   Plus, Trash2, TrendingUp, Package, Euro, Download, Upload, X,
   ShoppingBag, Percent, AlertCircle, Pencil, BarChart2,
   List, Sparkles, ArrowUpRight, ArrowDownRight, Tag, CheckCircle, LogOut, Settings,
+  Link as LinkIcon, ExternalLink,
 } from 'lucide-react';
 
 const supabase = createClient(
@@ -45,6 +46,7 @@ interface Template {
   shippingCost: string;
   boosterCost: string;
   image?: string;
+  productUrl?: string;
 }
 
 const CATEGORIES = ['Hauts','Bas','Robes','Manteaux','Chaussures','Accessoires','Sport','Autre'];
@@ -106,6 +108,7 @@ function templateToDb(t: Template, userId: string) {
     size: t.size, purchase_price: t.purchasePrice,
     shipping_cost: t.shippingCost, booster_cost: t.boosterCost,
     image: t.image || null,
+    product_url: t.productUrl || null,
   };
 }
 function dbToTemplate(row: any): Template {
@@ -114,6 +117,7 @@ function dbToTemplate(row: any): Template {
     size: row.size || '', purchasePrice: row.purchase_price || '',
     shippingCost: row.shipping_cost || '', boosterCost: row.booster_cost || '',
     image: row.image || undefined,
+    productUrl: row.product_url || undefined,
   };
 }
 
@@ -169,6 +173,7 @@ export default function VintedAI() {
   const [templateName, setTemplateName]       = useState('');
   const [templateSearch, setTemplateSearch]   = useState('');
   const [templateImage, setTemplateImage]     = useState<string>('');
+  const [templateUrl, setTemplateUrl]         = useState<string>('');
   const [templatesOpen, setTemplatesOpen]     = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef   = useRef<HTMLInputElement>(null);
@@ -451,11 +456,13 @@ export default function VintedAI() {
       shippingCost:  form.shippingCost,
       boosterCost:   form.boosterCost,
       image:         templateImage || undefined,
+      productUrl:    templateUrl.trim() || undefined,
     };
     setTemplates(prev => [...prev, t]);
     setSavingTemplate(false);
     setTemplateName('');
     setTemplateImage('');
+    setTemplateUrl('');
     await supabase.from('templates').insert(templateToDb(t, user.id));
   };
 
@@ -1175,6 +1182,14 @@ export default function VintedAI() {
                                   <span>{t.name}</span>
                                   {t.purchasePrice && <span className="opacity-50 font-normal">{t.purchasePrice}€</span>}
                                 </button>
+                                {t.productUrl && (
+                                  <a href={t.productUrl} target="_blank" rel="noopener noreferrer"
+                                    onClick={e => e.stopPropagation()}
+                                    title="Ouvrir le lien du produit"
+                                    className="ml-1 opacity-50 hover:opacity-100 hover:text-white transition p-0.5 rounded">
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
                                 <button onClick={() => deleteTemplate(t.id)}
                                   className="ml-1 opacity-30 hover:opacity-80 hover:text-red-400 transition p-0.5 rounded">
                                   <X className="w-3 h-3" />
@@ -1312,13 +1327,23 @@ export default function VintedAI() {
                         )}
                       </div>
 
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-widest mb-1.5" style={{ color:'rgba(255,255,255,0.3)' }}>Lien produit (optionnel)</p>
+                        <div className="relative">
+                          <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+                          <input type="url" placeholder="https://..." value={templateUrl}
+                            onChange={e => setTemplateUrl(e.target.value)}
+                            className="field-input w-full rounded-xl pl-9 pr-3 py-2.5 text-sm" />
+                        </div>
+                      </div>
+
                       <div className="flex gap-2">
                         <button type="button" onClick={saveTemplate}
                           className="flex-1 py-2 rounded-xl text-xs font-bold text-white transition"
                           style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
                           Sauvegarder
                         </button>
-                        <button type="button" onClick={() => { setSavingTemplate(false); setTemplateImage(''); }}
+                        <button type="button" onClick={() => { setSavingTemplate(false); setTemplateImage(''); setTemplateUrl(''); }}
                           className="px-4 py-2 rounded-xl text-xs font-semibold transition"
                           style={{ background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.4)' }}>
                           Annuler
