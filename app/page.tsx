@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Area, AreaChart, PieChart, Pie, Cell, Legend,
@@ -8,8 +9,13 @@ import {
 import {
   Plus, Trash2, TrendingUp, Package, Euro, Download, Upload, X,
   ShoppingBag, Percent, AlertCircle, Pencil, BarChart2,
-  List, Sparkles, ArrowUpRight, ArrowDownRight, Tag, CheckCircle,
+  List, Sparkles, ArrowUpRight, ArrowDownRight, Tag, CheckCircle, LogOut,
 } from 'lucide-react';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -43,8 +49,6 @@ interface Template {
 
 const CATEGORIES = ['Hauts','Bas','Robes','Manteaux','Chaussures','Accessoires','Sport','Autre'];
 const SIZES      = ['XS','S','M','L','XL','XXL','34','36','38','40','42','44','46','Unique'];
-const STORAGE_KEY   = 'vinted_tracker_sales';
-const TEMPLATES_KEY = 'vinted_tracker_templates';
 
 const CAT_COLORS: Record<string,string> = {
   Hauts:'#6366f1', Bas:'#8b5cf6', Robes:'#a78bfa', Manteaux:'#7c3aed',
@@ -75,6 +79,43 @@ const emptyForm = (): FormState => ({
   article:'', category:'Autre', size:'', date: today(),
   purchasePrice:'', salePrice:'', shippingCost:'', boosterCost:'',
 });
+
+// ── DB mapping ────────────────────────────────────────────────────────────
+
+function saleToDb(s: Sale, userId: string) {
+  return {
+    id: s.id, user_id: userId, date: s.date, article: s.article,
+    category: s.category, size: s.size,
+    purchase_price: s.purchasePrice, sale_price: s.salePrice,
+    shipping_cost: s.shippingCost, booster_cost: s.boosterCost,
+  };
+}
+function dbToSale(row: any): Sale {
+  return {
+    id: row.id, date: row.date, article: row.article,
+    category: row.category, size: row.size || '',
+    purchasePrice: Number(row.purchase_price) || 0,
+    salePrice: Number(row.sale_price) || 0,
+    shippingCost: Number(row.shipping_cost) || 0,
+    boosterCost: Number(row.booster_cost) || 0,
+  };
+}
+function templateToDb(t: Template, userId: string) {
+  return {
+    id: t.id, user_id: userId, name: t.name, category: t.category,
+    size: t.size, purchase_price: t.purchasePrice,
+    shipping_cost: t.shippingCost, booster_cost: t.boosterCost,
+    image: t.image || null,
+  };
+}
+function dbToTemplate(row: any): Template {
+  return {
+    id: row.id, name: row.name, category: row.category,
+    size: row.size || '', purchasePrice: row.purchase_price || '',
+    shippingCost: row.shipping_cost || '', boosterCost: row.booster_cost || '',
+    image: row.image || undefined,
+  };
+}
 
 // ── Animated counter ──────────────────────────────────────────────────────
 
@@ -133,19 +174,31 @@ export default function VintedAI() {
   const csvInputRef   = useRef<HTMLInputElement>(null);
   const [importMsg, setImportMsg] = useState<string | null>(null);
 
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   useEffect(() => {
-    setMounted(true);
-    try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) setSales(JSON.parse(raw)); } catch {}
-    try { const raw = localStorage.getItem(TEMPLATES_KEY); if (raw) setTemplates(JSON.parse(raw)); } catch {}
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (mounted) localStorage.setItem(STORAGE_KEY, JSON.stringify(sales));
-  }, [sales, mounted]);
-
-  useEffect(() => {
-    if (mounted) localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
-  }, [templates, mounted]);
+    if (!user) { setSales([]); setTemplates([]); setMounted(false); return; }
+    Promise.all([
+      supabase.from('sales').select('*').eq('user_id', user.id).order('date', { ascending: false }),
+      supabase.from('templates').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
+    ]).then(([{ data: salesData }, { data: templatesData }]) => {
+      setSales(salesData ? salesData.map(dbToSale) : []);
+      setTemplates(templatesData ? templatesData.map(dbToTemplate) : []);
+      setMounted(true);
+    });
+  }, [user]);
 
   // ── Stats (filtrées par mois sélectionné) ──
   const stats = useMemo(() => {
@@ -272,14 +325,12 @@ export default function VintedAI() {
     const items: { type: SugType; title: string; body: string }[] = [];
     const DAYS_FULL = ['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
 
-    // 1. Article le plus vendu (≥2 fois) → relancer
     if (topArticles.length > 0 && topArticles[0].count >= 2) {
       const a = topArticles[0];
       items.push({ type:'success', title:'Article phare à relancer',
         body:`"${a.name}" s'est vendu ${a.count} fois — c'est ton best-seller. Pense à en racheter pour continuer à le revendre.` });
     }
 
-    // 2. Meilleur ratio de revente
     const ratios = Object.entries(sales.reduce((m, s) => {
       if (!m[s.article]) m[s.article] = { p:0, r:0 };
       m[s.article].p += calcProfit(s); m[s.article].r += s.salePrice; return m;
@@ -292,7 +343,6 @@ export default function VintedAI() {
         body:`"${ratios[0].name}" affiche une marge de ${ratios[0].margin.toFixed(0)}% — ton article le plus rentable au ratio.` });
     }
 
-    // 3. Timing de publication (meilleur jour)
     const maxV = Math.max(...byDayOfWeek.map(d => d.ventes));
     if (maxV > 0) {
       const bestIdx = byDayOfWeek.findIndex(d => d.ventes === maxV);
@@ -301,14 +351,12 @@ export default function VintedAI() {
         body:`Tu vends le plus le ${DAYS_FULL[bestIdx]}. Publie tes annonces le ${DAYS_FULL[prevIdx]} soir pour capter ce pic de trafic.` });
     }
 
-    // 4. Catégorie forte
     if (byCat.length > 0) {
       const c = byCat[0];
       items.push({ type:'info', title:'Catégorie à privilégier',
         body:`Les ${c.name} sont ta meilleure catégorie (${c.count} vente${c.count>1?'s':''}). Continue à sourcer dans cette catégorie en priorité.` });
     }
 
-    // 5. Tendance mensuelle
     if (byMonth.length >= 2) {
       const last = byMonth[byMonth.length-1][1];
       const prev = byMonth[byMonth.length-2][1];
@@ -319,14 +367,12 @@ export default function VintedAI() {
         body:`Ce mois-ci tu es en baisse de ${Math.abs(diff).toFixed(2).replace('.',',')} € vs ${prev.label}. Booste ou renouvelle tes annonces.` });
     }
 
-    // 6. Taille à cibler
     if (topSizes.length > 0 && topSizes[0].count >= 2) {
       const sz = topSizes[0];
       items.push({ type:'tip', title:'Taille à cibler lors de tes achats',
         body:`La taille ${sz.size} est ta plus vendue (${sz.count} article${sz.count>1?'s':''}). Priorise cette taille quand tu sources.` });
     }
 
-    // 7. Marge globale
     const rev = sales.reduce((s,x) => s+x.salePrice, 0);
     const prof = sales.reduce((s,x) => s+calcProfit(x), 0);
     const mg = rev > 0 ? (prof/rev)*100 : 0;
@@ -337,7 +383,6 @@ export default function VintedAI() {
         body:`Ta marge moyenne est de ${mg.toFixed(1)}%. Vise des articles plus rares ou négocie mieux tes prix d'achat.` });
     }
 
-    // 8. Meilleure vente unique
     const best = [...sales].sort((a,b) => calcProfit(b)-calcProfit(a))[0];
     const bp = calcProfit(best);
     if (bp > 8) items.push({ type:'success', title:'Ta vente la plus rentable',
@@ -389,7 +434,7 @@ export default function VintedAI() {
     setSavingTemplate(false);
   };
 
-  const saveTemplate = () => {
+  const saveTemplate = async () => {
     if (!templateName.trim()) return;
     const t: Template = {
       id: Date.now().toString(),
@@ -405,6 +450,7 @@ export default function VintedAI() {
     setSavingTemplate(false);
     setTemplateName('');
     setTemplateImage('');
+    await supabase.from('templates').insert(templateToDb(t, user.id));
   };
 
   const handleTemplateImage = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -415,7 +461,10 @@ export default function VintedAI() {
     reader.readAsDataURL(file);
   };
 
-  const deleteTemplate = (id: string) => setTemplates(prev => prev.filter(t => t.id !== id));
+  const deleteTemplate = (id: string) => {
+    setTemplates(prev => prev.filter(t => t.id !== id));
+    supabase.from('templates').delete().eq('id', id);
+  };
 
   const liveProfit =
     (parseFloat(form.salePrice)     || 0) -
@@ -423,7 +472,7 @@ export default function VintedAI() {
     (parseFloat(form.shippingCost)  || 0) -
     (parseFloat(form.boosterCost)   || 0);
 
-  const submitSale = () => {
+  const submitSale = async () => {
     const sp = parseFloat(form.salePrice);
     if (!form.article.trim())                    { setFormError("Indique le nom de l'article."); return; }
     if (!form.salePrice || isNaN(sp) || sp <= 0) { setFormError('Indique un prix de vente valide.'); return; }
@@ -433,8 +482,15 @@ export default function VintedAI() {
       shippingCost:  parseFloat(form.shippingCost)  || 0,
       boosterCost:   parseFloat(form.boosterCost)   || 0,
     };
-    if (editId) setSales(prev => prev.map(s => s.id === editId ? { ...s, ...updated } : s));
-    else        setSales(prev => [{ id: Date.now().toString(), ...updated }, ...prev]);
+    if (editId) {
+      const sale = { ...sales.find(s => s.id === editId)!, ...updated };
+      setSales(prev => prev.map(s => s.id === editId ? sale : s));
+      await supabase.from('sales').update(saleToDb(sale, user.id)).eq('id', editId);
+    } else {
+      const newSale: Sale = { id: Date.now().toString(), ...updated };
+      setSales(prev => [newSale, ...prev]);
+      await supabase.from('sales').insert(saleToDb(newSale, user.id));
+    }
     setShowForm(false); setEditId(null);
   };
 
@@ -442,7 +498,7 @@ export default function VintedAI() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const text = (ev.target?.result as string) ?? '';
       const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
       const imported: Sale[] = [];
@@ -465,11 +521,13 @@ export default function VintedAI() {
         });
       }
       if (imported.length > 0) {
-        setSales(prev => {
-          const existing = new Set(prev.map(s => `${s.date}|${s.article}|${s.salePrice}`));
-          const news = imported.filter(s => !existing.has(`${s.date}|${s.article}|${s.salePrice}`));
-          return [...news, ...prev];
-        });
+        const currentSales = sales;
+        const existing = new Set(currentSales.map(s => `${s.date}|${s.article}|${s.salePrice}`));
+        const news = imported.filter(s => !existing.has(`${s.date}|${s.article}|${s.salePrice}`));
+        setSales(prev => [...news, ...prev]);
+        if (news.length > 0) {
+          await supabase.from('sales').insert(news.map(s => saleToDb(s, user.id)));
+        }
         setImportMsg(`${imported.length} vente${imported.length > 1 ? 's' : ''} importée${imported.length > 1 ? 's' : ''} !`);
         setTimeout(() => setImportMsg(null), 3000);
       }
@@ -491,16 +549,18 @@ export default function VintedAI() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const data = JSON.parse((ev.target?.result as string) ?? '[]');
         if (!Array.isArray(data)) return;
         const imported = data.filter((t: any) => t.id && t.name);
-        setTemplates(prev => {
-          const existingNames = new Set(prev.map(t => t.name.toLowerCase()));
-          const news = imported.filter((t: any) => !existingNames.has(t.name.toLowerCase()));
-          return [...prev, ...news];
-        });
+        const currentTemplates = templates;
+        const existingNames = new Set(currentTemplates.map(t => t.name.toLowerCase()));
+        const news = imported.filter((t: any) => !existingNames.has(t.name.toLowerCase()));
+        setTemplates(prev => [...prev, ...news]);
+        if (news.length > 0) {
+          await supabase.from('templates').insert(news.map((t: Template) => templateToDb(t, user.id)));
+        }
         setImportMsg(`${imported.length} modèle${imported.length > 1 ? 's' : ''} importé${imported.length > 1 ? 's' : ''} !`);
         setTimeout(() => setImportMsg(null), 3000);
       } catch {}
@@ -520,7 +580,13 @@ export default function VintedAI() {
     a.download = `sellsync_${today()}.csv`; a.click();
   };
 
-  if (!mounted) return null;
+  if (authLoading || (user && !mounted)) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background:'#0b0c14' }}>
+      <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor:'#6366f1', borderTopColor:'transparent' }} />
+    </div>
+  );
+
+  if (!user) return <AuthScreen />;
 
   return (
     <div className="min-h-screen" style={{ background:'#0b0c14' }}>
@@ -581,6 +647,12 @@ export default function VintedAI() {
                 <Download className="w-3.5 h-3.5" /><span className="hidden sm:inline ml-1">Export CSV</span>
               </button>
             )}
+            <button onClick={() => supabase.auth.signOut()}
+              title="Déconnexion"
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-white/30 hover:text-white/70 transition-all"
+              style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)' }}>
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           </div>
         </header>
 
@@ -1060,7 +1132,6 @@ export default function VintedAI() {
                     <p className="text-xs text-white/20 px-1">Aucun modèle enregistré.</p>
                   ) : (
                     <>
-                      {/* Barre de recherche */}
                       <div className="relative mb-3">
                         <input
                           type="text"
@@ -1078,7 +1149,6 @@ export default function VintedAI() {
                           </button>
                         )}
                       </div>
-                      {/* Liste filtrée */}
                       {(() => {
                         const filtered = templates.filter(t => t.name.toLowerCase().includes(templateSearch.toLowerCase()));
                         return filtered.length > 0 ? (
@@ -1212,7 +1282,6 @@ export default function VintedAI() {
                         onKeyDown={e => e.key === 'Enter' && saveTemplate()}
                         className="field-input w-full rounded-xl px-4 py-2.5 text-sm" autoFocus />
 
-                      {/* Photo optionnelle */}
                       <div className="flex items-center gap-3">
                         <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleTemplateImage} />
                         {templateImage ? (
@@ -1272,7 +1341,12 @@ export default function VintedAI() {
                 style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
                 Annuler
               </button>
-              <button onClick={() => { setSales(p => p.filter(s => s.id !== deleteId)); setDeleteId(null); }}
+              <button onClick={() => {
+                const id = deleteId;
+                setSales(p => p.filter(s => s.id !== id));
+                setDeleteId(null);
+                supabase.from('sales').delete().eq('id', id);
+              }}
                 className="flex-1 py-3 rounded-xl font-semibold text-sm transition"
                 style={{ background:'rgba(248,113,113,0.12)', border:'1px solid rgba(248,113,113,0.25)', color:'#fca5a5' }}>
                 Supprimer
@@ -1289,6 +1363,116 @@ export default function VintedAI() {
           <CheckCircle className="w-4 h-4" />{importMsg}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Auth Screen ───────────────────────────────────────────────────────────
+
+function AuthScreen() {
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [signupDone, setSignupDone] = useState(false);
+
+  const submit = async () => {
+    if (!email || !password) { setError('Remplis tous les champs.'); return; }
+    setError(''); setLoading(true);
+    try {
+      if (mode === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) setError(error.message === 'Invalid login credentials' ? 'Email ou mot de passe incorrect.' : error.message);
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) setError(error.message);
+        else setSignupDone(true);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background:'#0b0c14' }}>
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full opacity-[0.07]"
+          style={{ background:'radial-gradient(ellipse, #6366f1 0%, transparent 70%)', filter:'blur(60px)' }} />
+      </div>
+
+      <div className="relative w-full max-w-sm">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+            style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', boxShadow:'0 8px 32px rgba(99,102,241,0.45)' }}>
+            <ShoppingBag className="w-7 h-7 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Sell<span style={{ background:'linear-gradient(90deg,#6366f1,#a78bfa)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>Sync</span>
+          </h1>
+          <p className="text-xs text-white/30 mt-1 font-medium tracking-widest">VINTED ACCOUNTING</p>
+        </div>
+
+        {/* Card */}
+        <div className="rounded-2xl p-6" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)' }}>
+          {signupDone ? (
+            <div className="text-center py-4">
+              <CheckCircle className="w-10 h-10 text-green-400 mx-auto mb-3" />
+              <p className="text-white font-semibold mb-1">Compte créé !</p>
+              <p className="text-white/40 text-sm">Vérifie ta boîte mail pour confirmer, puis connecte-toi.</p>
+              <button onClick={() => { setMode('login'); setSignupDone(false); }}
+                className="mt-4 text-xs text-indigo-400 hover:text-indigo-300 transition">
+                Aller à la connexion
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-1 p-1 rounded-xl mb-5" style={{ background:'rgba(255,255,255,0.04)' }}>
+                {(['login','signup'] as const).map(m => (
+                  <button key={m} onClick={() => { setMode(m); setError(''); }}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+                    style={mode === m
+                      ? { background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#fff' }
+                      : { color:'rgba(255,255,255,0.35)' }}>
+                    {m === 'login' ? 'Connexion' : 'Créer un compte'}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-3">
+                <input
+                  type="email" placeholder="Email" value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && submit()}
+                  className="field-input w-full rounded-xl px-4 py-3 text-sm"
+                />
+                <input
+                  type="password" placeholder="Mot de passe" value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && submit()}
+                  className="field-input w-full rounded-xl px-4 py-3 text-sm"
+                />
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-2 text-xs px-3 py-2.5 rounded-xl mt-3"
+                  style={{ background:'rgba(248,113,113,0.1)', border:'1px solid rgba(248,113,113,0.25)', color:'#fca5a5' }}>
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
+                </div>
+              )}
+
+              <button onClick={submit} disabled={loading}
+                className="w-full mt-4 py-3.5 rounded-xl font-bold text-sm text-white transition active:scale-[0.97] disabled:opacity-60"
+                style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', boxShadow:'0 4px 18px rgba(99,102,241,0.4)' }}>
+                {loading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : mode === 'login' ? 'Se connecter' : 'Créer le compte'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
