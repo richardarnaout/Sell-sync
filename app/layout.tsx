@@ -17,6 +17,10 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'SellSync',
   },
+  icons: {
+    icon: '/icon',
+    apple: '/apple-icon',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
