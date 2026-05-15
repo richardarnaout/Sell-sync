@@ -18,7 +18,6 @@ export const metadata: Metadata = {
     title: 'SellSync',
   },
   icons: {
-    icon: '/icon-192.png',
     apple: '/apple-touch-icon.png',
   },
 };
