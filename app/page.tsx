@@ -13,8 +13,8 @@ import {
 } from 'lucide-react';
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+  'https://omipwzbkrdtarlcuurhn.supabase.co',
+  'sb_publishable_UdqYs50tvp37Kuni-sweTQ_n8i8s9kh'
 );
 
 // ── Types ─────────────────────────────────────────────────────────────────
