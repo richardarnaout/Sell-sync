@@ -1100,7 +1100,7 @@ export default function VintedAI() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-end justify-center animate-fade-in">
           <div className="absolute inset-0" style={{ background:'rgba(0,0,0,0.75)', backdropFilter:'blur(4px)' }} onClick={closeForm} />
-          <div className="animate-slide-up relative w-full max-w-xl rounded-t-3xl px-5 pt-4 pb-12 max-h-[92vh] overflow-y-auto"
+          <div className="animate-slide-up relative w-full max-w-xl rounded-t-3xl px-4 sm:px-5 pt-4 pb-12 max-h-[92vh] overflow-y-auto overflow-x-hidden"
             style={{ background:'#0f1120', border:'1px solid rgba(255,255,255,0.1)', borderBottom:'none' }}>
 
             <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ background:'rgba(255,255,255,0.15)' }} />
@@ -1114,7 +1114,7 @@ export default function VintedAI() {
             {/* ── Modèles ── */}
             <input ref={templateJsonRef} type="file" accept=".json" className="hidden" onChange={importTemplates} />
             <div className="mb-5">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <button
                   type="button"
                   onClick={() => setTemplatesOpen(o => !o)}
