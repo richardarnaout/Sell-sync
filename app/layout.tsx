@@ -1,10 +1,22 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#6366f1',
+};
+
 export const metadata: Metadata = {
-  title: 'Vinted Tracker — Suivi de ventes',
-  description: 'Suis tes bénéfices et ventes Vinted facilement.',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
+  title: 'SellSync',
+  description: 'Suivi de ventes Vinted — bénéfices, stats et graphiques',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'SellSync',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
