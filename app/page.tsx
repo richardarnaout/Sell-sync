@@ -605,23 +605,23 @@ export default function VintedAI() {
           style={{ background:'radial-gradient(circle, #8b5cf6 0%, transparent 70%)', filter:'blur(40px)' }} />
       </div>
 
-      <div className="relative w-full px-6 lg:px-10 pb-28">
+      <div className="relative w-full px-4 sm:px-6 lg:px-10 pb-28">
 
         {/* ── Header ── */}
-        <header className="pt-8 pb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center animate-float"
+        <header className="pt-6 sm:pt-8 pb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center animate-float"
               style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', boxShadow:'0 8px 24px rgba(99,102,241,0.4)' }}>
-              <ShoppingBag className="w-5 h-5 text-white" />
+              <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white tracking-tight leading-none">
+              <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-none">
                 Sell<span style={{ background:'linear-gradient(90deg,#6366f1,#a78bfa)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>Sync</span>
               </h1>
-              <p className="text-[11px] text-white/30 mt-0.5 font-medium tracking-wide">VINTED ACCOUNTING</p>
+              <p className="text-[10px] sm:text-[11px] text-white/30 mt-0.5 font-medium tracking-wide">VINTED ACCOUNTING</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Tabs — desktop uniquement */}
             <div className="hidden sm:flex gap-1 p-1 rounded-xl" style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)' }}>
               {(['ventes','analyse'] as const).map(t => (
@@ -636,32 +636,32 @@ export default function VintedAI() {
               ))}
             </div>
             <button onClick={openForm}
-              className="animate-pulse-ring flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97]"
+              className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97]"
               style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', boxShadow:'0 4px 18px rgba(99,102,241,0.4)' }}>
               <Plus className="w-4 h-4" /><span className="hidden sm:inline">Nouvelle vente</span>
             </button>
             <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={importCSV} />
-            <button onClick={() => csvInputRef.current?.click()}
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-white/50 hover:text-white transition-all"
+            <button onClick={() => csvInputRef.current?.click()} title="Importer CSV"
+              className="flex items-center p-2 sm:px-3 sm:py-2.5 rounded-xl text-xs font-semibold text-white/50 hover:text-white transition-all"
               style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
               <Upload className="w-3.5 h-3.5" /><span className="hidden sm:inline ml-1">Import CSV</span>
             </button>
             {sales.length > 0 && (
-              <button onClick={exportCSV}
-                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-white/50 hover:text-white transition-all"
+              <button onClick={exportCSV} title="Exporter CSV"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-white/50 hover:text-white transition-all"
                 style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
-                <Download className="w-3.5 h-3.5" /><span className="hidden sm:inline ml-1">Export CSV</span>
+                <Download className="w-3.5 h-3.5" /><span className="ml-1">Export CSV</span>
               </button>
             )}
             <button onClick={() => { setShowSettings(true); setSettingsError(''); setSettingsSuccess(false); setNewPassword(''); setConfirmPassword(''); }}
               title="Réglages"
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-white/30 hover:text-white/70 transition-all"
+              className="flex items-center p-2 sm:px-3 sm:py-2.5 rounded-xl text-xs font-semibold text-white/30 hover:text-white/70 transition-all"
               style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)' }}>
               <Settings className="w-3.5 h-3.5" />
             </button>
             <button onClick={() => supabase.auth.signOut()}
               title="Déconnexion"
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-white/30 hover:text-white/70 transition-all"
+              className="flex items-center p-2 sm:px-3 sm:py-2.5 rounded-xl text-xs font-semibold text-white/30 hover:text-white/70 transition-all"
               style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)' }}>
               <LogOut className="w-3.5 h-3.5" />
             </button>
@@ -684,7 +684,7 @@ export default function VintedAI() {
         </div>
 
         {/* ── Stats cards — 4 colonnes ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           <StatCard label="Bénéfice net" value={(animProfit >= 0 ? '+' : '') + animProfit.toFixed(2).replace('.',',') + ' €'}
             delta={stats.totalProfit} accent="#6366f1" icon={<Euro className="w-4 h-4" />} />
           <StatCard label="Chiffre d'affaires" value={animRevenue.toFixed(2).replace('.',',') + ' €'}
@@ -820,18 +820,18 @@ export default function VintedAI() {
             {sales.length === 0 ? (
               <EmptyState onAdd={() => { setTab('ventes'); openForm(); }} label="Ajoute des ventes pour voir les graphiques" />
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Best month highlight */}
                 {bestMonth && (
-                  <div className="rounded-2xl px-6 py-5 flex items-center justify-between"
+                  <div className="rounded-2xl px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
                     style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08))', border:'1px solid rgba(99,102,241,0.2)' }}>
                     <div>
                       <p className="text-xs text-white/40 font-semibold uppercase tracking-wide mb-1">Meilleur mois</p>
                       <p className="text-white font-bold text-lg">{bestMonth[1].label}</p>
                       <p className="text-xs text-white/40 mt-0.5">{bestMonth[1].sales.length} vente{bestMonth[1].sales.length > 1 ? 's' : ''}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-3xl font-bold text-indigo-400">+{bestMonth[1].profit.toFixed(2).replace('.',',')} €</p>
+                    <div className="sm:text-right">
+                      <p className="text-2xl sm:text-3xl font-bold text-indigo-400">+{bestMonth[1].profit.toFixed(2).replace('.',',')} €</p>
                       <p className="text-xs text-white/30 mt-1">CA {fmtPlain(bestMonth[1].revenue)}</p>
                     </div>
                   </div>
@@ -872,8 +872,8 @@ export default function VintedAI() {
                 )}
 
                 {/* Ligne 1 : CA vs Bénéfice + Tendance bénéfice */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  <div className="card rounded-2xl p-5">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+                  <div className="card rounded-2xl p-4 sm:p-5">
                     <p className="text-sm font-bold text-white mb-1">Revenus mensuels</p>
                     <p className="text-[11px] text-white/30 mb-5">Chiffre d'affaires vs bénéfice</p>
                     <ResponsiveContainer width="100%" height={220}>
@@ -889,7 +889,7 @@ export default function VintedAI() {
                   </div>
 
                   {chartMonthly.length > 1 ? (
-                    <div className="card rounded-2xl p-5">
+                    <div className="card rounded-2xl p-4 sm:p-5">
                       <p className="text-sm font-bold text-white mb-1">Tendance bénéfice</p>
                       <p className="text-[11px] text-white/30 mb-5">Évolution mois par mois</p>
                       <ResponsiveContainer width="100%" height={220}>
@@ -916,8 +916,8 @@ export default function VintedAI() {
                 </div>
 
                 {/* Ligne 2 : Coûts vs CA + Pie catégories */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  <div className="card rounded-2xl p-5">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+                  <div className="card rounded-2xl p-4 sm:p-5">
                     <p className="text-sm font-bold text-white mb-1">Coûts vs Revenus</p>
                     <p className="text-[11px] text-white/30 mb-5">Achats + port + booster</p>
                     <ResponsiveContainer width="100%" height={220}>
@@ -943,7 +943,7 @@ export default function VintedAI() {
                   </div>
 
                   {byCat.length > 0 && (
-                    <div className="card rounded-2xl p-5">
+                    <div className="card rounded-2xl p-4 sm:p-5">
                       <p className="text-sm font-bold text-white mb-1">Par catégorie</p>
                       <p className="text-[11px] text-white/30 mb-4">Répartition du chiffre d'affaires</p>
                       <div className="flex flex-col sm:flex-row gap-6 items-center">
@@ -978,7 +978,7 @@ export default function VintedAI() {
 
                 {/* ── Courbes mensuelles comparées ── */}
                 {monthComparison.months.length >= 2 && (
-                  <div className="card rounded-2xl p-5">
+                  <div className="card rounded-2xl p-4 sm:p-5">
                     <p className="text-sm font-bold text-white mb-1">Comparaison mensuelle</p>
                     <p className="text-[11px] text-white/30 mb-5">Bénéfice cumulé jour par jour — chaque courbe = un mois</p>
                     <ResponsiveContainer width="100%" height={240}>
@@ -999,9 +999,9 @@ export default function VintedAI() {
                 )}
 
                 {/* ── Top articles + Top tailles ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
                   {topArticles.length > 0 && (
-                    <div className="card rounded-2xl p-5">
+                    <div className="card rounded-2xl p-4 sm:p-5">
                       <p className="text-sm font-bold text-white mb-1">Articles les plus vendus</p>
                       <p className="text-[11px] text-white/30 mb-4">Top {topArticles.length} par nombre de ventes</p>
                       <ResponsiveContainer width="100%" height={220}>
@@ -1016,7 +1016,7 @@ export default function VintedAI() {
                     </div>
                   )}
                   {topSizes.length > 0 && (
-                    <div className="card rounded-2xl p-5">
+                    <div className="card rounded-2xl p-4 sm:p-5">
                       <p className="text-sm font-bold text-white mb-1">Tailles les plus vendues</p>
                       <p className="text-[11px] text-white/30 mb-4">Répartition par taille</p>
                       <ResponsiveContainer width="100%" height={220}>
@@ -1039,7 +1039,7 @@ export default function VintedAI() {
                 {/* ── Article phare par mois + Meilleur jour ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   {bestPerMonth.length > 0 && (
-                    <div className="card rounded-2xl p-5">
+                    <div className="card rounded-2xl p-4 sm:p-5">
                       <p className="text-sm font-bold text-white mb-1">Article phare par mois</p>
                       <p className="text-[11px] text-white/30 mb-4">L'article le plus vendu chaque mois</p>
                       <div className="space-y-2">
@@ -1062,7 +1062,7 @@ export default function VintedAI() {
                     </div>
                   )}
                   {sales.length >= 5 && (
-                    <div className="card rounded-2xl p-5">
+                    <div className="card rounded-2xl p-4 sm:p-5">
                       <p className="text-sm font-bold text-white mb-1">Meilleur jour de la semaine</p>
                       <p className="text-[11px] text-white/30 mb-4">Quand tu vends le plus</p>
                       <ResponsiveContainer width="100%" height={220}>
@@ -1558,12 +1558,12 @@ function StatCard({ label, value, accent, icon, delta }: {
   label:string; value:string; accent:string; icon:React.ReactNode; delta?:number;
 }) {
   return (
-    <div className="card rounded-2xl p-4 animate-fade-slide-up">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[11px] font-semibold text-white/35 uppercase tracking-wider leading-tight">{label}</p>
-        <div className="rounded-xl p-2" style={{ background:`${accent}22`, color:accent }}>{icon}</div>
+    <div className="card rounded-2xl p-3 sm:p-4 animate-fade-slide-up">
+      <div className="flex items-center justify-between mb-2 sm:mb-3">
+        <p className="text-[10px] sm:text-[11px] font-semibold text-white/35 uppercase tracking-wider leading-tight">{label}</p>
+        <div className="rounded-xl p-1.5 sm:p-2" style={{ background:`${accent}22`, color:accent }}>{icon}</div>
       </div>
-      <p className="text-xl font-bold tracking-tight" style={{ color: delta !== undefined ? (delta >= 0 ? accent : '#f87171') : accent }}>
+      <p className="text-lg sm:text-xl font-bold tracking-tight" style={{ color: delta !== undefined ? (delta >= 0 ? accent : '#f87171') : accent }}>
         {value}
       </p>
     </div>
