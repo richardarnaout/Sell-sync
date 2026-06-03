@@ -12,6 +12,7 @@ import {
   List, Sparkles, ArrowUpRight, ArrowDownRight, Tag, CheckCircle, LogOut, Settings,
   Link as LinkIcon, ExternalLink,
 } from 'lucide-react';
+import AiTools from './components/AiTools';
 
 const supabase = createClient(
   'https://omipwzbkrdtarlcuurhn.supabase.co',
@@ -891,6 +892,9 @@ export default function VintedAI() {
                     </div>
                   </div>
                 )}
+
+                {/* Outils IA */}
+                <AiTools sales={sales} />
 
                 {/* Ligne 1 : CA vs Bénéfice + Tendance bénéfice */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
