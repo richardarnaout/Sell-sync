@@ -761,8 +761,8 @@ export default function VintedAI() {
                                 <div className="flex-1 px-4 py-4">
                                   <div className="flex items-start justify-between gap-3">
                                     <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <p className="font-semibold text-white text-sm truncate">{s.article}</p>
+                                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                        <p className="font-semibold text-white text-sm truncate min-w-0">{s.article}</p>
                                         {s.productUrl && (
                                           <a href={s.productUrl} target="_blank" rel="noopener noreferrer"
                                             onClick={e => e.stopPropagation()}
