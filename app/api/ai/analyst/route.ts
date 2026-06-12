@@ -29,18 +29,32 @@ Format de sortie (texte brut, pas de Markdown lourd, utilise ces sections avec e
 
 Garde l'ensemble sous ~300 mots.`;
 
+const MAX_SALES = 500;
+const str = (v: unknown, max = 100) => String(v ?? '').trim().slice(0, max);
+const num = (v: unknown) => { const n = Number(v); return isFinite(n) ? n : 0; };
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const sales: SaleLike[] = Array.isArray(body?.sales) ? body.sales : [];
-    if (sales.length === 0) {
+    const raw: unknown[] = Array.isArray(body?.sales) ? body.sales.slice(0, MAX_SALES) : [];
+    if (raw.length === 0) {
       return NextResponse.json(
         { error: 'Ajoute au moins quelques ventes avant de lancer une analyse.' },
         { status: 400 },
       );
     }
 
-    // Données compactes : on pré-calcule le bénéfice pour fiabiliser le raisonnement.
+    const sales: SaleLike[] = raw.map((s: any) => ({
+      date: str(s?.date, 10),
+      article: str(s?.article, 150),
+      category: str(s?.category, 50),
+      size: str(s?.size, 20),
+      purchasePrice: num(s?.purchasePrice),
+      salePrice: num(s?.salePrice),
+      shippingCost: num(s?.shippingCost),
+      boosterCost: num(s?.boosterCost),
+    }));
+
     const data = sales.map((s) => ({
       date: s.date,
       article: s.article,

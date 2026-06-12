@@ -25,20 +25,21 @@ const SCHEMA = {
   additionalProperties: false,
 } as const;
 
+const str = (v: unknown, max = 100) => String(v ?? '').trim().slice(0, max);
+
 export async function POST(req: NextRequest) {
   try {
     const b = await req.json();
-    const article = (b?.article ?? '').toString().trim();
+    const article = str(b?.article, 200);
     if (!article) {
       return NextResponse.json({ error: "Indique au moins l'article." }, { status: 400 });
     }
     const details = [
       `Article : ${article}`,
-      b?.category ? `Catégorie : ${b.category}` : null,
-      b?.size ? `Taille : ${b.size}` : null,
-      b?.brand ? `Marque : ${b.brand}` : null,
-      b?.condition ? `État : ${b.condition}` : null,
-      b?.extra ? `Infos : ${b.extra}` : null,
+      b?.category ? `Catégorie : ${str(b.category, 50)}` : null,
+      b?.size ? `Taille : ${str(b.size, 20)}` : null,
+      b?.brand ? `Marque : ${str(b.brand, 100)}` : null,
+      b?.condition ? `État : ${str(b.condition, 50)}` : null,
     ]
       .filter(Boolean)
       .join('\n');

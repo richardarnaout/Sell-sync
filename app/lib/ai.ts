@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 // Modèle par défaut : le plus capable. Pour réduire le coût (~5x moins cher),
 // remplace par 'claude-haiku-4-5' — largement suffisant pour ces tâches.
-export const MODEL = 'claude-opus-4-8';
+export const MODEL = 'claude-opus-4-7';
 
 /**
  * Construit le client Anthropic à la demande (jamais au build).

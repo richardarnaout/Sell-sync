@@ -219,19 +219,21 @@ export default function VintedAI() {
   // ── Stats (filtrées par mois sélectionné) ──
   const stats = useMemo(() => {
     const filtered = selectedMonth ? sales.filter(x => x.date.slice(0,7) === selectedMonth) : sales;
-    if (!filtered.length) return { totalProfit:0, totalRevenue:0, count:0, avgMargin:0, totalCost:0 };
+    if (!filtered.length) return { totalProfit:0, totalRevenue:0, count:0, avgMargin:0, totalCost:0, avgSalePrice:0 };
     const totalRevenue = filtered.reduce((s,x) => s + x.salePrice, 0);
     const totalProfit  = filtered.reduce((s,x) => s + calcProfit(x), 0);
     const totalCost    = filtered.reduce((s,x) => s + x.purchasePrice + x.shippingCost + x.boosterCost, 0);
     const margins      = filtered.filter(x => x.salePrice > 0).map(x => (calcProfit(x) / x.salePrice) * 100);
     const avgMargin    = margins.length ? margins.reduce((a,b) => a + b, 0) / margins.length : 0;
-    return { totalProfit, totalRevenue, count: filtered.length, avgMargin, totalCost };
+    const avgSalePrice = filtered.length ? totalRevenue / filtered.length : 0;
+    return { totalProfit, totalRevenue, count: filtered.length, avgMargin, totalCost, avgSalePrice };
   }, [sales, selectedMonth]);
 
-  const animProfit  = useCountUp(stats.totalProfit);
-  const animRevenue = useCountUp(stats.totalRevenue);
-  const animCount   = useCountUp(stats.count);
-  const animMargin  = useCountUp(stats.avgMargin);
+  const animProfit   = useCountUp(stats.totalProfit);
+  const animRevenue  = useCountUp(stats.totalRevenue);
+  const animCount    = useCountUp(stats.count);
+  const animMargin   = useCountUp(stats.avgMargin);
+  const animAvgSale  = useCountUp(stats.avgSalePrice);
 
   // ── Données par mois ──
   const byMonth = useMemo(() => {
@@ -697,8 +699,8 @@ export default function VintedAI() {
           ))}
         </div>
 
-        {/* ── Stats cards — 4 colonnes ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+        {/* ── Stats cards — 5 colonnes ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
           <StatCard label="Bénéfice net" value={(animProfit >= 0 ? '+' : '') + animProfit.toFixed(2).replace('.',',') + ' €'}
             delta={stats.totalProfit} accent="#6366f1" icon={<Euro className="w-4 h-4" />} />
           <StatCard label="Chiffre d'affaires" value={animRevenue.toFixed(2).replace('.',',') + ' €'}
@@ -707,6 +709,8 @@ export default function VintedAI() {
             accent="#8b5cf6" icon={<Package className="w-4 h-4" />} />
           <StatCard label="Marge moyenne" value={animMargin.toFixed(1) + ' %'}
             accent="#10b981" icon={<Percent className="w-4 h-4" />} />
+          <StatCard label="Moyenne de vente" value={animAvgSale.toFixed(2).replace('.',',') + ' €'}
+            accent="#f59e0b" icon={<Tag className="w-4 h-4" />} />
         </div>
 
         {/* ════════════════ TAB VENTES ════════════════ */}

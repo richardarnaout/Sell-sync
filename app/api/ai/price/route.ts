@@ -29,14 +29,28 @@ const SCHEMA = {
   additionalProperties: false,
 } as const;
 
+const MAX_SALES = 500;
+const str = (v: unknown, max = 100) => String(v ?? '').trim().slice(0, max);
+const num = (v: unknown) => { const n = Number(v); return isFinite(n) ? n : 0; };
+
 export async function POST(req: NextRequest) {
   try {
     const b = await req.json();
-    const article = (b?.article ?? '').toString().trim();
+    const article = str(b?.article, 200);
     if (!article) {
       return NextResponse.json({ error: "Indique au moins l'article." }, { status: 400 });
     }
-    const sales: SaleLike[] = Array.isArray(b?.sales) ? b.sales : [];
+    const raw: unknown[] = Array.isArray(b?.sales) ? b.sales.slice(0, MAX_SALES) : [];
+    const sales: SaleLike[] = raw.map((s: any) => ({
+      date: str(s?.date, 10),
+      article: str(s?.article, 150),
+      category: str(s?.category, 50),
+      size: str(s?.size, 20),
+      purchasePrice: num(s?.purchasePrice),
+      salePrice: num(s?.salePrice),
+      shippingCost: num(s?.shippingCost),
+      boosterCost: num(s?.boosterCost),
+    }));
     const history = sales.map((s) => ({
       article: s.article,
       cat: s.category,
@@ -46,13 +60,14 @@ export async function POST(req: NextRequest) {
       benefice: Number(profitOf(s).toFixed(2)),
     }));
 
+    const purchasePrice = b?.purchasePrice !== undefined ? num(b.purchasePrice) : null;
     const target = [
       `Article à vendre : ${article}`,
-      b?.category ? `Catégorie : ${b.category}` : null,
-      b?.size ? `Taille : ${b.size}` : null,
-      b?.brand ? `Marque : ${b.brand}` : null,
-      b?.condition ? `État : ${b.condition}` : null,
-      b?.purchasePrice ? `Prix d'achat : ${b.purchasePrice} €` : null,
+      b?.category ? `Catégorie : ${str(b.category, 50)}` : null,
+      b?.size ? `Taille : ${str(b.size, 20)}` : null,
+      b?.brand ? `Marque : ${str(b.brand, 100)}` : null,
+      b?.condition ? `État : ${str(b.condition, 50)}` : null,
+      purchasePrice !== null ? `Prix d'achat : ${purchasePrice} €` : null,
     ]
       .filter(Boolean)
       .join('\n');
