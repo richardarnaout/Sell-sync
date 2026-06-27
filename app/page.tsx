@@ -214,7 +214,7 @@ export default function VintedAI() {
       setTemplates(templatesData ? templatesData.map(dbToTemplate) : []);
       setMounted(true);
     });
-  }, [user]);
+  }, [user?.id]);
 
   // ── Stats (filtrées par mois sélectionné) ──
   const stats = useMemo(() => {
@@ -482,9 +482,18 @@ export default function VintedAI() {
     reader.readAsDataURL(file);
   };
 
-  const deleteTemplate = (id: string) => {
+  const deleteTemplate = async (id: string) => {
+    const removed = templates.find(t => t.id === id);
     setTemplates(prev => prev.filter(t => t.id !== id));
-    supabase.from('templates').delete().eq('id', id);
+    const { data, error } = await supabase.from('templates').delete().eq('id', id).select();
+    if (error || !data || data.length === 0) {
+      if (removed) setTemplates(prev => [...prev, removed]);
+      alert(
+        error
+          ? 'Suppression impossible : ' + error.message
+          : "Suppression bloquée par la base (policy RLS DELETE manquante sur la table « templates »). Ajoute-la dans Supabase.",
+      );
+    }
   };
 
   const liveProfit =
@@ -1399,11 +1408,20 @@ export default function VintedAI() {
                 style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
                 Annuler
               </button>
-              <button onClick={() => {
+              <button onClick={async () => {
                 const id = deleteId;
+                const removed = sales.find(s => s.id === id);
                 setSales(p => p.filter(s => s.id !== id));
                 setDeleteId(null);
-                supabase.from('sales').delete().eq('id', id);
+                const { data, error } = await supabase.from('sales').delete().eq('id', id).select();
+                if (error || !data || data.length === 0) {
+                  if (removed) setSales(p => [removed, ...p].sort((a, b) => b.date.localeCompare(a.date)));
+                  alert(
+                    error
+                      ? 'Suppression impossible : ' + error.message
+                      : "Suppression bloquée par la base (policy RLS DELETE manquante sur la table « sales »). Ajoute-la dans Supabase.",
+                  );
+                }
               }}
                 className="flex-1 py-3 rounded-xl font-semibold text-sm transition"
                 style={{ background:'rgba(248,113,113,0.12)', border:'1px solid rgba(248,113,113,0.25)', color:'#fca5a5' }}>
