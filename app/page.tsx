@@ -164,22 +164,35 @@ function ChartTooltip({ active, payload, label }: any) {
 
 // ── Barre de progression d'objectif (avec repère de régularité) ────────────
 
-function GoalBar({ label, current, target, expected, render, suffix }: {
+function GoalBar({ label, current, target, expected, render, suffix, past }: {
   label: string; current: number; target: number; expected: number;
-  render: (n: number) => string; suffix?: string;
+  render: (n: number) => string; suffix?: string; past?: boolean;
 }) {
-  const pct    = target > 0 ? Math.min(100, (current / target) * 100) : 0;
-  const expPct = target > 0 ? Math.min(100, (expected / target) * 100) : 0;
-  const reached = current >= target;
+  const sfx     = suffix ?? '';
+  const pct     = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+  const expPct  = target > 0 ? Math.min(100, (expected / target) * 100) : 0;
+  const reached = current >= target - 1e-9;
   const onTrack = current >= expected - 1e-9;
-  const remaining = Math.max(0, target - current);
 
-  const accent = reached ? '#10b981' : onTrack ? '#6366f1' : '#f59e0b';
-  const status = reached
-    ? { text: 'Objectif atteint 🎉', color: '#34d399' }
-    : onTrack
-      ? { text: 'Dans les temps', color: '#a5b4fc' }
-      : { text: 'En retard', color: '#fcd34d' };
+  let accent: string, status: { text: string; color: string };
+  if (past) {
+    accent = reached ? '#10b981' : '#ef4444';
+    status = reached
+      ? { text: 'Quota tenu ✓', color: '#34d399' }
+      : { text: 'Sous le quota', color: '#fca5a5' };
+  } else {
+    accent = reached ? '#10b981' : onTrack ? '#6366f1' : '#f59e0b';
+    status = reached
+      ? { text: 'Quota atteint 🎉', color: '#34d399' }
+      : onTrack
+        ? { text: 'Dans les temps', color: '#a5b4fc' }
+        : { text: 'En retard', color: '#fcd34d' };
+  }
+
+  const footer = past
+    ? (reached ? `+${render(current - target)}${sfx} au-dessus du quota 💪` : `${render(target - current)}${sfx} sous le quota`)
+    : (reached ? `+${render(current - target)}${sfx} au-dessus du quota 💪`
+               : `Encore ${render(Math.max(0, target - current))}${sfx} · repère du jour : ${render(expected)}${sfx}`);
 
   return (
     <div className="rounded-xl p-3.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -187,7 +200,7 @@ function GoalBar({ label, current, target, expected, render, suffix }: {
         <div>
           <p className="text-[11px] text-white/40 font-semibold uppercase tracking-wide mb-0.5">{label}</p>
           <p className="text-white font-bold text-lg leading-none">
-            {render(current)}<span className="text-white/30 text-sm font-medium"> / {render(target)}{suffix ?? ''}</span>
+            {render(current)}<span className="text-white/30 text-sm font-medium"> / {render(target)}{sfx}</span>
           </p>
         </div>
         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
@@ -197,15 +210,11 @@ function GoalBar({ label, current, target, expected, render, suffix }: {
       </div>
       <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
         <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: accent }} />
-        {!reached && expPct > 0 && expPct < 100 && (
+        {!past && !reached && expPct > 0 && expPct < 100 && (
           <div className="absolute top-[-2px] bottom-[-2px] w-0.5 rounded-full" style={{ left: `${expPct}%`, background: 'rgba(255,255,255,0.55)' }} />
         )}
       </div>
-      <p className="text-[10px] text-white/35 mt-1.5">
-        {reached
-          ? `+${render(current - target)}${suffix ?? ''} au-dessus de la cible 💪`
-          : `Encore ${render(remaining)}${suffix ?? ''} · repère du jour : ${render(expected)}${suffix ?? ''}`}
-      </p>
+      <p className="text-[10px] text-white/35 mt-1.5">{footer}</p>
     </div>
   );
 }
@@ -222,6 +231,7 @@ export default function VintedAI() {
   const [deleteId, setDeleteId]   = useState<string | null>(null);
   const [editId, setEditId]       = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [goalMonth, setGoalMonth]         = useState<string>('');
   const [templates, setTemplates]       = useState<Template[]>([]);
   const [savingTemplate, setSavingTemplate]   = useState(false);
   const [templateName, setTemplateName]       = useState('');
@@ -472,9 +482,8 @@ export default function VintedAI() {
   [byMonth]);
 
   // ── Objectif de vente (coach) ──
-  // Cible = max(moyenne 3 derniers mois × 1,15 ; dernier mois × 1,05).
-  // Part du rythme récent, le pousse de +15 %, ne redescend jamais sous le
-  // dernier mois (tendance progressive), sans jamais s'ancrer sur le record.
+  // Quota = ta MOYENNE depuis le début (tous tes mois). C'est le minimum de
+  // régularité à tenir chaque mois. Aucune majoration : viser sa moyenne.
   const goal = useMemo(() => {
     if (!byMonth.length) return null;
     const ymd = (d: Date) =>
@@ -482,30 +491,28 @@ export default function VintedAI() {
     const now = new Date();
     const curKey = ymd(now).slice(0, 7);
 
-    // Baseline = mois terminés (on exclut le mois courant, encore incomplet).
-    const completed = byMonth.filter(([k]) => k !== curKey);
-    const base = (completed.length ? completed : byMonth).slice(-3);
-    const avgCount = base.reduce((s, [, m]) => s + m.sales.length, 0) / base.length;
-    const avgRev   = base.reduce((s, [, m]) => s + m.revenue, 0) / base.length;
-    const lastM = base[base.length - 1][1];
+    // Moyenne sur tout l'historique
+    const avgCount = byMonth.reduce((s, [, m]) => s + m.sales.length, 0) / byMonth.length;
+    const avgRev   = byMonth.reduce((s, [, m]) => s + m.revenue, 0) / byMonth.length;
+    const targetCount = Math.max(1, Math.round(avgCount));
+    const targetRev   = Math.max(5, Math.round(avgRev / 5) * 5);
 
-    const GROWTH = 1.15;
-    const targetCount = Math.max(1, Math.ceil(Math.max(avgCount * GROWTH, lastM.sales.length * 1.05)));
-    const targetRev   = Math.max(5, Math.round(Math.max(avgRev * GROWTH, lastM.revenue * 1.05) / 5) * 5);
-
-    // Réalisé sur le mois calendaire en cours
-    const cur = byMonth.find(([k]) => k === curKey)?.[1];
-    const curCount = cur ? cur.sales.length : 0;
-    const curRev   = cur ? cur.revenue : 0;
-
-    // Rythme attendu = part du mois écoulée × cible (régularité linéaire)
+    // Cible hebdo (le mois calendaire fait ~daysInMonth/7 semaines)
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const monthElapsed = now.getDate() / daysInMonth;
-
-    // Cible hebdo (le mois fait ~daysInMonth/7 semaines)
     const weeksInMonth = daysInMonth / 7;
-    const weekCountTarget = Math.max(1, Math.ceil(targetCount / weeksInMonth));
+    const weekCountTarget = Math.max(1, Math.round(targetCount / weeksInMonth));
     const weekRevTarget   = Math.max(5, Math.round((targetRev / weeksInMonth) / 5) * 5);
+
+    // Un objet par mois actif : résultat vs quota (le plus récent en premier)
+    const months = [...byMonth].reverse().map(([key, m]) => ({
+      key, label: m.label, labelShort: m.labelShort,
+      count: m.sales.length, revenue: m.revenue,
+      met: m.sales.length >= targetCount && m.revenue >= targetRev,
+      isCurrent: key === curKey,
+    }));
+
+    // Rythme attendu sur le mois en cours = part du mois écoulée × quota
+    const monthElapsed = now.getDate() / daysInMonth;
 
     // Réalisé sur la semaine en cours (lundi → dimanche, dates locales)
     const dow = (now.getDay() + 6) % 7; // 0 = lundi
@@ -520,11 +527,11 @@ export default function VintedAI() {
     const weekElapsed = (dow + 1) / 7;
 
     return {
-      targetCount, targetRev, curCount, curRev,
+      targetCount, targetRev, curKey, months,
       expCount: targetCount * monthElapsed, expRev: targetRev * monthElapsed,
       weekCountTarget, weekRevTarget, weekCount, weekRev,
       expWeekCount: weekCountTarget * weekElapsed, expWeekRev: weekRevTarget * weekElapsed,
-      monthLabel: now.toLocaleDateString('fr-FR', { month: 'long' }),
+      monthsCount: byMonth.length,
     };
   }, [byMonth, sales]);
 
@@ -980,51 +987,85 @@ export default function VintedAI() {
                 {/* ── Objectif de vente (coach) ── */}
                 {goal && (() => {
                   const fmtInt = (n: number) => String(Math.round(n));
-                  const remCount = Math.max(0, goal.targetCount - goal.curCount);
-                  const remRev   = Math.max(0, goal.targetRev - goal.curRev);
-                  const monthDone = goal.curCount >= goal.targetCount && goal.curRev >= goal.targetRev;
-                  const behind = goal.curRev < goal.expRev - 1e-9 || goal.curCount < goal.expCount - 1e-9;
-                  const headline = monthDone
-                    ? `🔥 Objectif de ${goal.monthLabel} déjà dépassé — tu es au-dessus de ta cible, continue sur ta lancée !`
-                    : behind
-                      ? `Tu peux accélérer : il te reste ${remCount} vente${remCount > 1 ? 's' : ''} et ${fmtPlain(remRev)} pour tenir ton objectif de ${goal.monthLabel}.`
-                      : `Bon rythme 👏 Encore ${remCount} vente${remCount > 1 ? 's' : ''} et ${fmtPlain(remRev)} pour boucler ${goal.monthLabel} dans les temps.`;
+                  const fmtEur = (n: number) => n.toFixed(0);
+                  // Mois affiché : sélection valide, sinon mois en cours, sinon le plus récent
+                  const selKey = goal.months.find(m => m.key === goalMonth)?.key
+                    ?? (goal.months.find(m => m.isCurrent)?.key ?? goal.months[0].key);
+                  const sel = goal.months.find(m => m.key === selKey)!;
+                  const isCur = sel.isCurrent;
+                  const remCount = Math.max(0, goal.targetCount - sel.count);
+                  const remRev   = Math.max(0, goal.targetRev - sel.revenue);
+                  const headline = isCur
+                    ? (sel.met
+                        ? `🔥 Quota de ${sel.label} déjà tenu — tu es au-dessus de ta moyenne, continue !`
+                        : `Pour rester régulier ce mois-ci : encore ${remCount} vente${remCount > 1 ? 's' : ''} et ${fmtPlain(remRev)} pour atteindre ta moyenne.`)
+                    : (sel.met
+                        ? `✓ En ${sel.label}, tu as tenu ton quota de régularité. Beau mois !`
+                        : `En ${sel.label}, tu es resté sous ta moyenne : ${sel.count} vente${sel.count > 1 ? 's' : ''} et ${fmtPlain(sel.revenue)}.`);
                   return (
                     <div className="rounded-2xl px-4 sm:px-6 py-5"
                       style={{ background: 'linear-gradient(135deg,rgba(16,185,129,0.10),rgba(99,102,241,0.08))', border: '1px solid rgba(16,185,129,0.2)' }}>
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <Target className="w-4 h-4 text-emerald-400" />
                         <p className="text-sm font-bold text-white">Objectif de vente</p>
                         <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
                           style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7', border: '1px solid rgba(16,185,129,0.2)' }}>
-                          auto · +15 % de progression
+                          quota = ta moyenne
                         </span>
                       </div>
-                      <p className="text-xs text-white/55 leading-relaxed mb-4">{headline}</p>
+                      <p className="text-xs text-white/55 leading-relaxed mb-1">
+                        Ton quota minimum de régularité = ta moyenne sur tes {goal.monthsCount} mois&nbsp;:
+                        <span className="text-white font-semibold"> {goal.targetCount} vente{goal.targetCount > 1 ? 's' : ''}</span> et
+                        <span className="text-white font-semibold"> {fmtPlain(goal.targetRev)}</span> par mois
+                        <span className="text-white/35"> (≈ {goal.weekCountTarget} vente{goal.weekCountTarget > 1 ? 's' : ''} et {fmtPlain(goal.weekRevTarget)} / semaine)</span>.
+                      </p>
+                      <p className="text-[10px] text-white/35 mb-4">« Montant vendu » = la somme de tes prix de vente sur la période (ton chiffre d'affaires).</p>
 
-                      {/* Objectif du mois */}
+                      {/* Sélecteur de mois */}
+                      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-3">
+                        {goal.months.map(m => {
+                          const active = m.key === selKey;
+                          return (
+                            <button key={m.key} onClick={() => setGoalMonth(m.key)}
+                              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                              style={active
+                                ? { background: 'rgba(16,185,129,0.18)', color: '#fff', border: '1px solid rgba(16,185,129,0.4)' }
+                                : { background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0"
+                                style={{ background: m.isCurrent ? '#6366f1' : m.met ? '#10b981' : '#ef4444' }} />
+                              {m.labelShort}{m.isCurrent ? ' · en cours' : ''}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Résultat du mois sélectionné */}
                       <div className="flex items-center gap-1.5 mb-2.5">
                         <CalendarDays className="w-3.5 h-3.5 text-white/40" />
-                        <p className="text-[11px] font-bold text-white/70 uppercase tracking-wide">Ce mois-ci</p>
+                        <p className="text-[11px] font-bold text-white/70 uppercase tracking-wide">{sel.label}{isCur ? ' · en cours' : ''}</p>
                       </div>
+                      <p className="text-xs text-white/55 leading-relaxed mb-3">{headline}</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <GoalBar label="Ventes" current={goal.curCount} target={goal.targetCount} expected={goal.expCount} render={fmtInt} />
-                        <GoalBar label="Montant vendu (CA)" current={goal.curRev} target={goal.targetRev} expected={goal.expRev} render={(n) => n.toFixed(0)} suffix=" €" />
+                        <GoalBar label="Ventes" current={sel.count} target={goal.targetCount} expected={isCur ? goal.expCount : goal.targetCount} render={fmtInt} past={!isCur} />
+                        <GoalBar label="Montant vendu" current={sel.revenue} target={goal.targetRev} expected={isCur ? goal.expRev : goal.targetRev} render={fmtEur} suffix=" €" past={!isCur} />
                       </div>
 
-                      {/* Objectif de la semaine */}
-                      <div className="flex items-center gap-1.5 mb-2.5 mt-4">
-                        <CalendarDays className="w-3.5 h-3.5 text-white/40" />
-                        <p className="text-[11px] font-bold text-white/70 uppercase tracking-wide">Cette semaine</p>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <GoalBar label="Ventes" current={goal.weekCount} target={goal.weekCountTarget} expected={goal.expWeekCount} render={fmtInt} />
-                        <GoalBar label="Montant vendu (CA)" current={goal.weekRev} target={goal.weekRevTarget} expected={goal.expWeekRev} render={(n) => n.toFixed(0)} suffix=" €" />
-                      </div>
-
-                      <p className="text-[10px] text-white/30 mt-3">
-                        Le trait clair sur chaque barre = là où tu devrais être aujourd'hui pour rester régulier. Vise-le pour progresser linéairement.
-                      </p>
+                      {/* Semaine en cours (seulement quand on regarde le mois courant) */}
+                      {isCur && (
+                        <>
+                          <div className="flex items-center gap-1.5 mb-2.5 mt-4">
+                            <CalendarDays className="w-3.5 h-3.5 text-white/40" />
+                            <p className="text-[11px] font-bold text-white/70 uppercase tracking-wide">Cette semaine</p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <GoalBar label="Ventes" current={goal.weekCount} target={goal.weekCountTarget} expected={goal.expWeekCount} render={fmtInt} />
+                            <GoalBar label="Montant vendu" current={goal.weekRev} target={goal.weekRevTarget} expected={goal.expWeekRev} render={fmtEur} suffix=" €" />
+                          </div>
+                          <p className="text-[10px] text-white/30 mt-3">
+                            Le trait clair sur chaque barre = là où tu devrais être aujourd'hui pour tenir ton rythme régulier.
+                          </p>
+                        </>
+                      )}
                     </div>
                   );
                 })()}
