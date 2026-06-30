@@ -8,13 +8,16 @@
     "start": "next start -p 3001"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.3",
     "@anthropic-ai/sdk": "^0.100.1",
     "@supabase/supabase-js": "^2.105.4",
+    "ai": "^7.0.8",
     "lucide-react": "^0.400.0",
     "next": "14.2.5",
     "react": "^18",
     "react-dom": "^18",
-    "recharts": "^3.8.1"
+    "recharts": "^3.8.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^20",

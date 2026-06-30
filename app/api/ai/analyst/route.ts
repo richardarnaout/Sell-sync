@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getClient, MODEL, textOf, profitOf, type SaleLike } from '../../../lib/ai';
+import { generateText } from 'ai';
+import { getModel, MODEL_ANALYST, profitOf, type SaleLike } from '../../../lib/ai';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -66,22 +67,14 @@ export async function POST(req: NextRequest) {
       benefice: Number(profitOf(s).toFixed(2)),
     }));
 
-    const client = getClient();
-    const msg = await client.messages.create({
-      model: MODEL,
-      max_tokens: 3000,
-      thinking: { type: 'adaptive' },
-      output_config: { effort: 'medium' },
-      system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
-      messages: [
-        {
-          role: 'user',
-          content: `Voici mes ${data.length} ventes (JSON) :\n${JSON.stringify(data)}\n\nFais-moi ton analyse stratégique.`,
-        },
-      ],
+    const { text } = await generateText({
+      model: getModel(MODEL_ANALYST),
+      maxOutputTokens: 3000,
+      system: SYSTEM,
+      prompt: `Voici mes ${data.length} ventes (JSON) :\n${JSON.stringify(data)}\n\nFais-moi ton analyse stratégique.`,
     });
 
-    return NextResponse.json({ report: textOf(msg.content) });
+    return NextResponse.json({ report: text });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erreur inattendue.';
     return NextResponse.json({ error: message }, { status: 500 });

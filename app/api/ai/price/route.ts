@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getClient, MODEL, textOf, profitOf, type SaleLike } from '../../../lib/ai';
+import { generateObject } from 'ai';
+import { z } from 'zod';
+import { getModel, MODEL_FAST, profitOf, type SaleLike } from '../../../lib/ai';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -17,17 +19,12 @@ Sortie :
 - "min" / "max" : fourchette raisonnable en euros (nombres).
 - "reasoning" : 2 à 4 phrases en français qui justifient le prix en citant les ventes comparables réelles (chiffres).`;
 
-const SCHEMA = {
-  type: 'object',
-  properties: {
-    suggested: { type: 'number' },
-    min: { type: 'number' },
-    max: { type: 'number' },
-    reasoning: { type: 'string' },
-  },
-  required: ['suggested', 'min', 'max', 'reasoning'],
-  additionalProperties: false,
-} as const;
+const SCHEMA = z.object({
+  suggested: z.number().describe('Prix de vente conseillé en euros'),
+  min: z.number().describe('Bas de fourchette raisonnable en euros'),
+  max: z.number().describe('Haut de fourchette raisonnable en euros'),
+  reasoning: z.string().describe('2 à 4 phrases en français justifiant le prix avec des chiffres réels'),
+});
 
 const MAX_SALES = 500;
 const str = (v: unknown, max = 100) => String(v ?? '').trim().slice(0, max);
@@ -72,26 +69,14 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join('\n');
 
-    const client = getClient();
-    const msg = await client.messages.create({
-      model: MODEL,
-      max_tokens: 1024,
-      thinking: { type: 'adaptive' },
-      output_config: {
-        effort: 'low',
-        format: { type: 'json_schema', schema: SCHEMA },
-      },
-      system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
-      messages: [
-        {
-          role: 'user',
-          content: `${target}\n\nMon historique de ventes (JSON) :\n${JSON.stringify(history)}\n\nQuel prix de vente conseilles-tu ?`,
-        },
-      ],
+    const { object } = await generateObject({
+      model: getModel(MODEL_FAST),
+      schema: SCHEMA,
+      system: SYSTEM,
+      prompt: `${target}\n\nMon historique de ventes (JSON) :\n${JSON.stringify(history)}\n\nQuel prix de vente conseilles-tu ?`,
     });
 
-    const parsed = JSON.parse(textOf(msg.content));
-    return NextResponse.json(parsed);
+    return NextResponse.json(object);
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erreur inattendue.';
     return NextResponse.json({ error: message }, { status: 500 });

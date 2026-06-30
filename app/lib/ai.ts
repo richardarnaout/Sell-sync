@@ -1,29 +1,25 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import type { LanguageModel } from 'ai';
 
-// Modèle par défaut : le plus capable. Pour réduire le coût (~5x moins cher),
-// remplace par 'claude-haiku-4-5' — largement suffisant pour ces tâches.
-export const MODEL = 'claude-opus-4-7';
+// Fournisseur : Google Gemini (palier gratuit, sans carte bancaire).
+// Clé gratuite à créer sur https://aistudio.google.com → "Get API key".
+export const MODEL_FAST    = 'gemini-2.5-flash-lite'; // Annonce + Prix (simple, rapide)
+export const MODEL_ANALYST = 'gemini-2.5-flash';      // Analyste stratégique (raisonnement)
 
 /**
- * Construit le client Anthropic à la demande (jamais au build).
+ * Construit un modèle Gemini à la demande (jamais au build).
  * Lève une erreur claire si la clé est absente — la route la renvoie au client.
  */
-export function getClient(): Anthropic {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+export function getModel(id: string): LanguageModel {
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "ANTHROPIC_API_KEY manquante. Ajoute-la dans .env.local (en local) et dans les variables d'environnement Vercel, puis redéploie.",
+      "GOOGLE_GENERATIVE_AI_API_KEY manquante. Crée une clé gratuite sur aistudio.google.com, " +
+      "ajoute-la dans .env.local (en local) et dans les variables d'environnement Vercel, puis redéploie.",
     );
   }
-  return new Anthropic({ apiKey });
-}
-
-/** Concatène les blocs texte d'une réponse Messages. */
-export function textOf(content: Anthropic.ContentBlock[]): string {
-  return content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('');
+  const google = createGoogleGenerativeAI({ apiKey });
+  return google(id);
 }
 
 /** Forme minimale d'une vente, utilisée côté serveur pour les prompts. */
