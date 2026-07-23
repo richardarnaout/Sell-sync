@@ -10,6 +10,7 @@ create table if not exists public.purchases (
   user_id        uuid not null references auth.users(id) on delete cascade,
   date           date not null,
   article        text not null,
+  model          text,                               -- marque/série Shein (Rafferiza, Unadoll...)
   color          text,
   size           text,
   purchase_price numeric not null default 0,
@@ -18,6 +19,8 @@ create table if not exists public.purchases (
   status         text not null default 'en_stock',   -- en_stock | vendu | ignore
   created_at     timestamptz not null default now()
 );
+-- Si la table existait déjà sans la colonne model, on l'ajoute :
+alter table public.purchases add column if not exists model text;
 alter table public.purchases enable row level security;
 drop policy if exists purchases_own on public.purchases;
 create policy purchases_own on public.purchases

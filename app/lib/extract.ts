@@ -18,6 +18,13 @@ export const ExtractItem = z.object({
   article: z
     .string()
     .describe("Nom de l'article, SANS la couleur ni la taille (garder la langue d'origine)"),
+  model: z
+    .string()
+    .nullable()
+    .describe(
+      "Marque / série / modèle Shein collé au nom (ex : SHEIN PETITE, Unadoll, sweetfull, " +
+        'Rafferiza, Elengeza, SHEIN Bae). null si absent.',
+    ),
   color: z
     .string()
     .nullable()
@@ -72,6 +79,7 @@ const SYSTEM = `Tu extrais les articles d'un mail transactionnel de revente de v
 
 Règles :
 - Côté Shein la couleur est souvent collée à la taille : "Jaune citron-Petite S" → color="Jaune citron", size="S".
+- "model" = la marque/série Shein collée au nom (SHEIN PETITE, Unadoll, sweetfull, Rafferiza...), sinon null.
 - Vente Vinted finalisée : "price" = le montant écrit à côté de "Montant de la commande".
   IGNORE les "Frais de port" (payés par l'acheteur, hors bénéfice du vendeur).
 - Ne devine jamais un prix : "price" est un nombre en euros (point décimal), pris tel quel dans le mail.

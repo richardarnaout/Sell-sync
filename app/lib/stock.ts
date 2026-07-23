@@ -5,6 +5,7 @@ export interface Purchase {
   id: string;
   date: string; // YYYY-MM-DD (date d'achat)
   article: string;
+  model: string; // marque/série Shein (Rafferiza, SHEIN Petite, Unadoll...) — utile pour le titre Vinted
   color: string;
   size: string;
   purchasePrice: number;
@@ -27,14 +28,15 @@ export interface PendingSale {
 // ── Mapping DB (snake_case) ──
 export function purchaseToDb(p: Purchase, userId: string) {
   return {
-    id: p.id, user_id: userId, date: p.date, article: p.article, color: p.color,
-    size: p.size, purchase_price: p.purchasePrice, sku: p.sku,
+    id: p.id, user_id: userId, date: p.date, article: p.article, model: p.model,
+    color: p.color, size: p.size, purchase_price: p.purchasePrice, sku: p.sku,
     order_number: p.orderNumber, status: p.status,
   };
 }
 export function dbToPurchase(r: any): Purchase {
   return {
-    id: r.id, date: r.date, article: r.article, color: r.color || '', size: r.size || '',
+    id: r.id, date: r.date, article: r.article, model: r.model || '',
+    color: r.color || '', size: r.size || '',
     purchasePrice: Number(r.purchase_price) || 0, sku: r.sku || '',
     orderNumber: r.order_number || '', status: r.status || 'en_stock',
   };
@@ -81,10 +83,10 @@ export function bestGuessId(sale: PendingSale, stock: Purchase[]): string {
 export function sampleData(): { purchases: Omit<Purchase, 'id'>[]; pending: Omit<PendingSale, 'id'>[] } {
   return {
     purchases: [
-      { date: '2026-07-15', article: 'Robe tube ajustée froncée de couleur unie', color: 'Jaune citron', size: 'S', purchasePrice: 22.76, sku: 'sz25061793992493144', orderNumber: 'USO18828W0000002CB6', status: 'en_stock' },
-      { date: '2026-07-15', article: "Robe d'été élégante avec laçage dos nu (Unadoll)", color: 'Bleu marine', size: 'M', purchasePrice: 11.72, sku: 'sz251210180466917581137', orderNumber: 'USO18828W0000002CB6', status: 'en_stock' },
-      { date: '2026-07-15', article: 'Ceinture en PU à boucle', color: 'Noir', size: '130', purchasePrice: 0, sku: 'sc2401218075474815', orderNumber: 'USO18828W0000002CB6', status: 'en_stock' },
-      { date: '2026-07-15', article: 'Ventilateur de poche pliable', color: 'Blanc', size: '', purchasePrice: 6.87, sku: 'sh25012498813422316', orderNumber: 'USO18828W0000002CB6', status: 'en_stock' },
+      { date: '2026-07-15', article: 'Robe tube ajustée froncée de couleur unie', model: 'SHEIN PETITE', color: 'Jaune citron', size: 'S', purchasePrice: 22.76, sku: 'sz25061793992493144', orderNumber: 'USO18828W0000002CB6', status: 'en_stock' },
+      { date: '2026-07-15', article: "Robe d'été élégante avec laçage dos nu", model: 'Unadoll', color: 'Bleu marine', size: 'M', purchasePrice: 11.72, sku: 'sz251210180466917581137', orderNumber: 'USO18828W0000002CB6', status: 'en_stock' },
+      { date: '2026-07-15', article: 'Ceinture en PU à boucle', model: '', color: 'Noir', size: '130', purchasePrice: 0, sku: 'sc2401218075474815', orderNumber: 'USO18828W0000002CB6', status: 'en_stock' },
+      { date: '2026-07-15', article: 'Ventilateur de poche pliable', model: 'sweetfull', color: 'Blanc', size: '', purchasePrice: 6.87, sku: 'sh25012498813422316', orderNumber: 'USO18828W0000002CB6', status: 'en_stock' },
     ],
     pending: [
       { date: '2026-07-18', article: 'Robe Violetta Tifany', color: 'lila', size: 'M', salePrice: 29, transactionNumber: '20886805143', status: 'en_attente' },

@@ -60,10 +60,17 @@ export default function StockView({ userId, purchases, onChange }: Props) {
               <Package className="w-4 h-4 text-indigo-300" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-white truncate">{p.article}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                {p.model && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0"
+                    style={{ background: 'rgba(139,92,246,0.18)', color: '#c4b5fd' }}>{p.model}</span>
+                )}
+                <p className="text-sm font-semibold text-white truncate">{p.article}</p>
+              </div>
               <p className="text-xs text-white/40 mt-0.5">
                 {p.size && <>taille {p.size} · </>}{p.color && <>{p.color} · </>}acheté le {p.date}
               </p>
+              {p.sku && <p className="text-[10px] text-white/25 mt-0.5 font-mono">SKU {p.sku}</p>}
             </div>
             <span className="text-sm font-bold text-white/80">{money(p.purchasePrice)}</span>
             <div className="flex items-center gap-1.5">

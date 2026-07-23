@@ -35,9 +35,11 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
     if (!purchase) { setErr('Choisis d\'abord l\'article correspondant.'); return; }
     setBusy(sale.id); setErr('');
     try {
+      // Le modèle Shein (Rafferiza, Unadoll...) se glisse en tête du titre — retouchable ensuite.
+      const article = purchase.model ? `${purchase.model} — ${sale.article}` : sale.article;
       const saleRow = {
         id: crypto.randomUUID(), user_id: userId, date: sale.date,
-        article: sale.article, category: 'Autre', size: purchase.size || sale.size,
+        article, category: 'Autre', size: purchase.size || sale.size,
         purchase_price: purchase.purchasePrice, sale_price: sale.salePrice,
         shipping_cost: 0, booster_cost: 0, product_url: null,
       };
@@ -146,7 +148,7 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
                     <option value="" style={{ background: '#1e1b2e' }}>— choisir l'article acheté —</option>
                     {candidates.map((p) => (
                       <option key={p.id} value={p.id} style={{ background: '#1e1b2e' }}>
-                        {p.article} · {p.size || '?'} · {p.color} · payé {money(p.purchasePrice)}
+                        {p.model ? `[${p.model}] ` : ''}{p.article} · {p.size || '?'} · {p.color} · payé {money(p.purchasePrice)}
                       </option>
                     ))}
                   </select>
