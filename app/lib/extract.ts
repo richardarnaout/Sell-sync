@@ -66,11 +66,14 @@ export type ExtractResult = z.infer<typeof ExtractSchema>;
 
 const SYSTEM = `Tu extrais les articles d'un mail transactionnel de revente de vêtements.
 - Shein → CONFIRMATION DE COMMANDE (un achat). kind="achat". Liste TOUS les articles avec leur prix unitaire.
-- Vinted → mail indiquant qu'un article est VENDU ou que la vente est finalisée. kind="vente". Un seul article.
+- Vinted → mail "La transaction est finalisée" (la vente est bouclée). kind="vente". Un seul article.
+  ⚠️ On ne traite QUE la vente finalisée. Le mail "Ton article s'est vendu" (pas encore finalisé) → kind="autre".
 - Sinon (expédition, livraison, retard, pub, newsletter...) → kind="autre", items vide.
 
 Règles :
 - Côté Shein la couleur est souvent collée à la taille : "Jaune citron-Petite S" → color="Jaune citron", size="S".
+- Vente Vinted finalisée : "price" = le montant écrit à côté de "Montant de la commande".
+  IGNORE les "Frais de port" (payés par l'acheteur, hors bénéfice du vendeur).
 - Ne devine jamais un prix : "price" est un nombre en euros (point décimal), pris tel quel dans le mail.
 - Garde le nom de l'article dans sa langue d'origine, sans le traduire.
 - "date" seulement si elle est écrite dans le mail (YYYY-MM-DD), sinon null. N'invente jamais.`;
@@ -94,6 +97,8 @@ export async function extractFromEmail(
     system: SYSTEM,
     prompt: `SUJET: ${subject}\n\nCORPS DU MAIL:\n${body}`,
   });
-  // La date du corps prime si présente, sinon on retombe sur la date du mail.
-  return { ...object, date: object.date ?? receivedDate };
+  // La date du corps prime SI elle est propre (YYYY-MM-DD) ; sinon (absente ou mal
+  // formatée, ex. "18/07/2026 17 h 05") on retombe sur la date du mail, toujours fiable.
+  const clean = object.date && /^\d{4}-\d{2}-\d{2}$/.test(object.date) ? object.date : receivedDate;
+  return { ...object, date: clean };
 }
