@@ -21,6 +21,12 @@ export async function POST(req: NextRequest) {
     const b = await req.json();
     const subject = typeof b?.subject === 'string' ? b.subject : '';
     const body = typeof b?.body === 'string' ? b.body : '';
+    // Date de réception du mail (YYYY-MM-DD). Par défaut aujourd'hui pour le test ;
+    // en prod ce sera la date du mail Gmail.
+    const receivedDate =
+      typeof b?.receivedDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.receivedDate)
+        ? b.receivedDate
+        : new Date().toISOString().slice(0, 10);
 
     if (!body.trim()) {
       return NextResponse.json(
@@ -29,7 +35,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await extractFromEmail(subject, body.slice(0, 20000));
+    const result = await extractFromEmail(subject, body.slice(0, 20000), receivedDate);
     return NextResponse.json(result);
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Erreur inattendue.';

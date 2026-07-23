@@ -43,7 +43,11 @@ export const ExtractSchema = z.object({
     .describe("Lien direct vers l'article (page produit Shein ou annonce Vinted) si présent, sinon null"),
   date: z
     .string()
-    .describe('Date de l\'événement au format YYYY-MM-DD (date de commande ou de vente)'),
+    .nullable()
+    .describe(
+      "Date écrite EXPLICITEMENT dans le corps du mail (YYYY-MM-DD), sinon null. " +
+        "⚠️ N'INVENTE JAMAIS de date : si elle n'est pas écrite, mets null.",
+    ),
   confidence: z
     .number()
     .min(0)
@@ -63,18 +67,27 @@ Règles :
 - Ne devine jamais un prix : si tu ne le trouves pas clairement, baisse "confidence".
 - "price" est un nombre en euros (pas de symbole, point décimal). Ex: 12.5
 - Garde le titre de l'article dans sa langue d'origine, sans le traduire.
-- "date" au format YYYY-MM-DD. Si absente, mets la date la plus plausible et baisse "confidence".`;
+- "date" : ne l'invente jamais. Mets-la seulement si elle est écrite dans le mail, sinon null.`;
 
 /**
- * Extrait les infos structurées d'un mail. Ne touche PAS à la base :
- * renvoie juste l'objet pour inspection / test.
+ * Extrait les infos structurées d'un mail. Ne touche PAS à la base.
+ *
+ * @param receivedDate  Date de réception du mail (métadonnée Gmail, YYYY-MM-DD).
+ *   C'est la source de vérité pour la date : les mails Vinted "vendu" n'écrivent
+ *   aucune date dans leur corps → sans ça l'IA en inventait une (bug vu au backtest).
+ *   Si le corps contient une vraie date (ex. commande Shein), elle est prioritaire.
  */
-export async function extractFromEmail(subject: string, body: string): Promise<ExtractResult> {
+export async function extractFromEmail(
+  subject: string,
+  body: string,
+  receivedDate: string,
+): Promise<ExtractResult> {
   const { object } = await generateObject({
     model: getModel(MODEL_FAST),
     schema: ExtractSchema,
     system: SYSTEM,
     prompt: `SUJET: ${subject}\n\nCORPS DU MAIL:\n${body}`,
   });
-  return object;
+  // La date du corps prime si présente, sinon on retombe sur la date du mail.
+  return { ...object, date: object.date ?? receivedDate };
 }
