@@ -1,80 +1,86 @@
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { getModel, MODEL_FAST } from './ai';
+import { getModel, MODEL_ANALYST } from './ai';
 
 /**
  * Brique d'extraction (Phase 1 du plan auto-import).
  *
  * On donne à Gemini le sujet + le corps d'un mail transactionnel (Shein ou Vinted)
- * et il renvoie un objet structuré, aligné sur les colonnes de la table `sales`.
+ * et il renvoie une LISTE d'articles structurés, alignés sur la table `sales`.
  *
- * ⚠️ Prompt à CALER sur de vrais mails (formats Shein / Vinted réels).
- *    Le schéma, lui, est déjà aligné sur SellSync et ne devrait pas bouger.
+ * ⚠️ Schéma calé sur de VRAIS mails (backtest 2026-07-23) :
+ *  - un mail Vinted « vendu »  = 1 article (une vente).
+ *  - un mail de commande Shein = PLUSIEURS articles (chacun une future ligne de stock),
+ *    avec la couleur souvent collée à la taille côté Shein ("Jaune citron-Petite S").
  */
+
+export const ExtractItem = z.object({
+  article: z
+    .string()
+    .describe("Nom de l'article, SANS la couleur ni la taille (garder la langue d'origine)"),
+  color: z
+    .string()
+    .nullable()
+    .describe('Couleur si présente (souvent collée à la taille côté Shein), sinon null'),
+  size: z
+    .string()
+    .nullable()
+    .describe('Taille seule (S, M, 38...) sans la couleur, sinon null'),
+  price: z
+    .number()
+    .describe('Prix unitaire en euros (achat = prix payé, vente = prix vendu)'),
+  sku: z.string().nullable().describe('Référence/SKU de l\'article si présente, sinon null'),
+  productUrl: z
+    .string()
+    .nullable()
+    .describe("Lien direct vers l'article si présent, sinon null"),
+});
 
 export const ExtractSchema = z.object({
   kind: z
     .enum(['achat', 'vente', 'autre'])
     .describe(
-      "achat = mail de commande Shein (on a acheté un article). " +
-        "vente = mail Vinted confirmant qu'un article est vendu / la vente finalisée. " +
-        "autre = tout le reste (pub, newsletter, expédition, etc.)",
+      "achat = confirmation de commande Shein. " +
+        "vente = mail Vinted confirmant qu'un article est vendu / finalisé. " +
+        "autre = tout le reste (expédition, livraison, pub, newsletter...).",
     ),
-  article: z
-    .string()
-    .describe("Nom / titre de l'article tel qu'écrit dans le mail (garder la langue d'origine)"),
-  size: z
-    .string()
-    .nullable()
-    .describe("Taille de l'article si présente (S, M, 38, 40...), sinon null"),
-  price: z
-    .number()
-    .describe(
-      "Prix principal en euros. Pour un achat Shein = prix payé pour l'article. " +
-        "Pour une vente Vinted = prix auquel l'article a été vendu.",
-    ),
-  shipping: z
-    .number()
-    .nullable()
-    .describe('Frais de port en euros si mentionnés séparément, sinon null'),
-  productUrl: z
-    .string()
-    .nullable()
-    .describe("Lien direct vers l'article (page produit Shein ou annonce Vinted) si présent, sinon null"),
   date: z
     .string()
     .nullable()
     .describe(
-      "Date écrite EXPLICITEMENT dans le corps du mail (YYYY-MM-DD), sinon null. " +
+      "Date écrite EXPLICITEMENT dans le mail (YYYY-MM-DD), sinon null. " +
         "⚠️ N'INVENTE JAMAIS de date : si elle n'est pas écrite, mets null.",
     ),
-  confidence: z
+  orderNumber: z.string().nullable().describe('Numéro de commande si présent, sinon null'),
+  shipping: z
     .number()
-    .min(0)
-    .max(1)
-    .describe("Confiance de l'extraction entre 0 et 1 (1 = mail parfaitement clair)"),
+    .nullable()
+    .describe('Frais de port de la commande en euros si mentionnés, sinon null'),
+  items: z
+    .array(ExtractItem)
+    .describe('TOUS les articles du mail (1 pour une vente Vinted, N pour une commande Shein)'),
 });
 
+export type ExtractItemResult = z.infer<typeof ExtractItem>;
 export type ExtractResult = z.infer<typeof ExtractSchema>;
 
-const SYSTEM = `Tu extrais les infos d'un mail transactionnel de revente de vêtements.
-Deux sources possibles :
-- Shein → mail de CONFIRMATION DE COMMANDE (un achat). kind="achat".
-- Vinted → mail indiquant qu'un article est VENDU ou que la vente est finalisée. kind="vente".
-Si le mail n'est ni l'un ni l'autre (expédition, pub, newsletter, relance panier...), mets kind="autre".
+const SYSTEM = `Tu extrais les articles d'un mail transactionnel de revente de vêtements.
+- Shein → CONFIRMATION DE COMMANDE (un achat). kind="achat". Liste TOUS les articles avec leur prix unitaire.
+- Vinted → mail indiquant qu'un article est VENDU ou que la vente est finalisée. kind="vente". Un seul article.
+- Sinon (expédition, livraison, retard, pub, newsletter...) → kind="autre", items vide.
 
 Règles :
-- Ne devine jamais un prix : si tu ne le trouves pas clairement, baisse "confidence".
-- "price" est un nombre en euros (pas de symbole, point décimal). Ex: 12.5
-- Garde le titre de l'article dans sa langue d'origine, sans le traduire.
-- "date" : ne l'invente jamais. Mets-la seulement si elle est écrite dans le mail, sinon null.`;
+- Côté Shein la couleur est souvent collée à la taille : "Jaune citron-Petite S" → color="Jaune citron", size="S".
+- Ne devine jamais un prix : "price" est un nombre en euros (point décimal), pris tel quel dans le mail.
+- Garde le nom de l'article dans sa langue d'origine, sans le traduire.
+- "date" seulement si elle est écrite dans le mail (YYYY-MM-DD), sinon null. N'invente jamais.`;
 
 /**
  * Extrait les infos structurées d'un mail. Ne touche PAS à la base.
  *
  * @param receivedDate  Date de réception du mail (métadonnée Gmail, YYYY-MM-DD).
- *   C'est la source de vérité pour la date : les mails Vinted "vendu" n'écrivent
- *   aucune date dans leur corps → sans ça l'IA en inventait une (bug vu au backtest).
+ *   Source de vérité pour la date : les mails Vinted « vendu » n'écrivent aucune
+ *   date dans leur corps → sans ça l'IA en inventait une (bug vu au backtest).
  *   Si le corps contient une vraie date (ex. commande Shein), elle est prioritaire.
  */
 export async function extractFromEmail(
@@ -83,7 +89,7 @@ export async function extractFromEmail(
   receivedDate: string,
 ): Promise<ExtractResult> {
   const { object } = await generateObject({
-    model: getModel(MODEL_FAST),
+    model: getModel(MODEL_ANALYST),
     schema: ExtractSchema,
     system: SYSTEM,
     prompt: `SUJET: ${subject}\n\nCORPS DU MAIL:\n${body}`,
