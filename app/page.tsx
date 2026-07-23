@@ -13,6 +13,10 @@ import {
   Link as LinkIcon, ExternalLink, Target, CalendarDays,
 } from 'lucide-react';
 import AiTools from './components/AiTools';
+import ReviewQueue from './components/ReviewQueue';
+import StockView from './components/StockView';
+import { Purchase, PendingSale, dbToPurchase, dbToPending } from './lib/stock';
+import { Boxes } from 'lucide-react';
 
 const supabase = createClient(
   'https://omipwzbkrdtarlcuurhn.supabase.co',
@@ -224,7 +228,9 @@ function GoalBar({ label, current, target, expected, render, suffix, past }: {
 export default function VintedAI() {
   const [sales, setSales]         = useState<Sale[]>([]);
   const [mounted, setMounted]     = useState(false);
-  const [tab, setTab]             = useState<'ventes'|'analyse'>('ventes');
+  const [tab, setTab]             = useState<'ventes'|'analyse'|'stock'>('ventes');
+  const [purchases, setPurchases]   = useState<Purchase[]>([]);
+  const [pendingSales, setPendingSales] = useState<PendingSale[]>([]);
   const [showForm, setShowForm]   = useState(false);
   const [form, setForm]           = useState<FormState>(emptyForm());
   const [formError, setFormError] = useState('');
@@ -262,17 +268,23 @@ export default function VintedAI() {
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!user) { setSales([]); setTemplates([]); setMounted(false); return; }
-    Promise.all([
+  const loadData = useCallback(async () => {
+    if (!user) { setSales([]); setTemplates([]); setPurchases([]); setPendingSales([]); setMounted(false); return; }
+    const [{ data: salesData }, { data: templatesData }, purchasesRes, pendingRes] = await Promise.all([
       supabase.from('sales').select('*').eq('user_id', user.id).order('date', { ascending: false }),
       supabase.from('templates').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
-    ]).then(([{ data: salesData }, { data: templatesData }]) => {
-      setSales(salesData ? salesData.map(dbToSale) : []);
-      setTemplates(templatesData ? templatesData.map(dbToTemplate) : []);
-      setMounted(true);
-    });
+      // Les tables auto-import peuvent ne pas exister encore (migration SQL non passée) → on avale l'erreur.
+      supabase.from('purchases').select('*').eq('user_id', user.id).order('date', { ascending: false }),
+      supabase.from('pending_sales').select('*').eq('user_id', user.id).order('date', { ascending: false }),
+    ]);
+    setSales(salesData ? salesData.map(dbToSale) : []);
+    setTemplates(templatesData ? templatesData.map(dbToTemplate) : []);
+    setPurchases(purchasesRes.data ? purchasesRes.data.map(dbToPurchase) : []);
+    setPendingSales(pendingRes.data ? pendingRes.data.map(dbToPending) : []);
+    setMounted(true);
   }, [user?.id]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   // ── Stats (filtrées par mois sélectionné) ──
   const stats = useMemo(() => {
@@ -761,14 +773,19 @@ export default function VintedAI() {
           <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Tabs — desktop uniquement */}
             <div className="hidden sm:flex gap-1 p-1 rounded-xl" style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)' }}>
-              {(['ventes','analyse'] as const).map(t => (
+              {(['ventes','stock','analyse'] as const).map(t => (
                 <button key={t} onClick={() => setTab(t)}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all"
                   style={tab === t
                     ? { background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#fff', boxShadow:'0 2px 12px rgba(99,102,241,0.35)' }
                     : { color:'rgba(255,255,255,0.35)' }}>
-                  {t === 'ventes' ? <List className="w-3.5 h-3.5" /> : <BarChart2 className="w-3.5 h-3.5" />}
-                  {t === 'ventes' ? 'Mes ventes' : 'Analyse'}
+                  {t === 'ventes' ? <List className="w-3.5 h-3.5" /> : t === 'stock' ? <Boxes className="w-3.5 h-3.5" /> : <BarChart2 className="w-3.5 h-3.5" />}
+                  {t === 'ventes' ? 'Mes ventes' : t === 'stock' ? 'Stock' : 'Analyse'}
+                  {t === 'stock' && pendingSales.filter(s => s.status === 'en_attente').length > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background:'#10b981' }}>
+                      {pendingSales.filter(s => s.status === 'en_attente').length}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -808,17 +825,27 @@ export default function VintedAI() {
         {/* Tabs — mobile uniquement, barre pleine largeur */}
         <div className="flex sm:hidden gap-1 p-1 rounded-xl mb-5 mt-1"
           style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)' }}>
-          {(['ventes','analyse'] as const).map(t => (
+          {(['ventes','stock','analyse'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all"
               style={tab === t
                 ? { background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#fff', boxShadow:'0 2px 12px rgba(99,102,241,0.35)' }
                 : { color:'rgba(255,255,255,0.35)' }}>
-              {t === 'ventes' ? <List className="w-3.5 h-3.5" /> : <BarChart2 className="w-3.5 h-3.5" />}
-              {t === 'ventes' ? 'Mes ventes' : 'Analyse'}
+              {t === 'ventes' ? <List className="w-3.5 h-3.5" /> : t === 'stock' ? <Boxes className="w-3.5 h-3.5" /> : <BarChart2 className="w-3.5 h-3.5" />}
+              {t === 'ventes' ? 'Mes ventes' : t === 'stock' ? 'Stock' : 'Analyse'}
+              {t === 'stock' && pendingSales.filter(s => s.status === 'en_attente').length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background:'#10b981' }}>
+                  {pendingSales.filter(s => s.status === 'en_attente').length}
+                </span>
+              )}
             </button>
           ))}
         </div>
+
+        {/* ── File de révision auto-import (ventes détectées à relier) ── */}
+        {user && (
+          <ReviewQueue userId={user.id} purchases={purchases} pendingSales={pendingSales} onChange={loadData} />
+        )}
 
         {/* ── Stats cards — 5 colonnes ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
@@ -958,6 +985,13 @@ export default function VintedAI() {
                   ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ════════════════ TAB STOCK ════════════════ */}
+        {tab === 'stock' && user && (
+          <div className="animate-fade-in">
+            <StockView userId={user.id} purchases={purchases} onChange={loadData} />
           </div>
         )}
 
