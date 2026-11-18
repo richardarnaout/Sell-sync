@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { requireUser } from '../../../lib/requireUser';
 import { getModel, MODEL_FAST } from '../../../lib/ai';
 
 export const runtime = 'nodejs';
@@ -25,6 +26,8 @@ const SCHEMA = z.object({
 const str = (v: unknown, max = 100) => String(v ?? '').trim().slice(0, max);
 
 export async function POST(req: NextRequest) {
+  const denied = await requireUser(req);
+  if (denied) return denied;
   try {
     const b = await req.json();
     const article = str(b?.article, 200);

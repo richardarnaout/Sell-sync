@@ -1,11 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { Sparkles, Check, X, Link2, Package, ChevronRight } from 'lucide-react';
+import { Sparkles, X, Package, Clock, Link2, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import {
-  Purchase, PendingSale, purchaseToDb, pendingToDb,
-  rankCandidates, bestGuessId, sampleData,
+  Purchase, PendingSale, validerVente, rankCandidates, sameSizeStock, sheinLink, bestGuessId,
 } from '../lib/stock';
+import MailsAVerifier from './MailsAVerifier';
 
 interface Props {
   userId: string;
@@ -18,39 +18,20 @@ const money = (n: number) => n.toFixed(2).replace('.', ',') + ' €';
 
 export default function ReviewQueue({ userId, purchases, pendingSales, onChange }: Props) {
   const waiting = pendingSales.filter((s) => s.status === 'en_attente');
-  const stock = purchases.filter((p) => p.status === 'en_stock');
-  const [chosen, setChosen] = useState<Record<string, string>>({});
+  const [showAll, setShowAll] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState('');
-  const [seeding, setSeeding] = useState(false);
 
-  const pick = (saleId: string, purchaseId: string) =>
-    setChosen((c) => ({ ...c, [saleId]: purchaseId }));
-
-  // Valide un appariement : crée la vente (achat + vente), sort l'article du stock,
-  // marque la vente en attente comme traitée.
-  async function confirm(sale: PendingSale) {
-    const purchaseId = chosen[sale.id] ?? bestGuessId(sale, purchases);
+  // 1 clic sur un article du stock : UN seul appel SQL (valider_vente) crée la vente, sort l'article
+  // du stock et clôt la vente en attente — tout ou rien. Bénéfice = prix de vente − prix d'achat.
+  async function confirm(sale: PendingSale, purchaseId: string) {
     const purchase = purchases.find((p) => p.id === purchaseId);
     if (!purchase) { setErr('Choisis d\'abord l\'article correspondant.'); return; }
     setBusy(sale.id); setErr('');
     try {
       // Le modèle Shein (Rafferiza, Unadoll...) se glisse en tête du titre — retouchable ensuite.
       const article = purchase.model ? `${purchase.model} — ${sale.article}` : sale.article;
-      const saleRow = {
-        id: crypto.randomUUID(), user_id: userId, date: sale.date,
-        article, category: 'Autre', size: purchase.size || sale.size,
-        purchase_price: purchase.purchasePrice, sale_price: sale.salePrice,
-        shipping_cost: 0, booster_cost: 0, product_url: null,
-      };
-      const r1 = await supabase.from('sales').insert(saleRow).select();
-      if (r1.error) throw r1.error;
-      const r2 = await supabase.from('purchases')
-        .update(purchaseToDb({ ...purchase, status: 'vendu' }, userId)).eq('id', purchase.id);
-      if (r2.error) throw r2.error;
-      const r3 = await supabase.from('pending_sales')
-        .update(pendingToDb({ ...sale, status: 'traite' }, userId)).eq('id', sale.id);
-      if (r3.error) throw r3.error;
+      await validerVente(sale.id, purchase.id, article, purchase.sheinUrl);
       onChange();
     } catch (e: any) {
       setErr(e?.message || 'Erreur lors de l\'enregistrement.');
@@ -61,52 +42,21 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
   async function ignoreSale(sale: PendingSale) {
     setBusy(sale.id); setErr('');
     try {
-      const r = await supabase.from('pending_sales')
-        .update(pendingToDb({ ...sale, status: 'ignore' }, userId)).eq('id', sale.id);
+      const r = await supabase.from('pending_sales').update({ status: 'ignore' }).eq('id', sale.id);
       if (r.error) throw r.error;
       onChange();
     } catch (e: any) { setErr(e?.message || 'Erreur.'); }
     finally { setBusy(null); }
   }
 
-  async function loadSamples() {
-    setSeeding(true); setErr('');
-    try {
-      const s = sampleData();
-      const p1 = await supabase.from('purchases')
-        .insert(s.purchases.map((p) => purchaseToDb({ ...p, id: crypto.randomUUID() }, userId)));
-      if (p1.error) throw p1.error;
-      const p2 = await supabase.from('pending_sales')
-        .insert(s.pending.map((p) => pendingToDb({ ...p, id: crypto.randomUUID() }, userId)));
-      if (p2.error) throw p2.error;
-      onChange();
-    } catch (e: any) { setErr(e?.message || 'Erreur au chargement des exemples.'); }
-    finally { setSeeding(false); }
-  }
-
-  // Rien à réviser : proposer le chargement des exemples si la base est vide.
-  if (waiting.length === 0) {
-    if (purchases.length === 0 && pendingSales.length === 0) {
-      return (
-        <div className="mb-6 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-3 justify-between"
-          style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
-          <div className="flex items-center gap-2.5 text-sm text-white/70">
-            <Sparkles className="w-4 h-4 text-purple-300 shrink-0" />
-            <span>Teste l'auto-import avec tes vrais mails déjà extraits (4 achats Shein + 1 vente Vinted).</span>
-          </div>
-          <button onClick={loadSamples} disabled={seeding}
-            className="shrink-0 px-4 py-2 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-50"
-            style={{ background: 'linear-gradient(135deg,#8b5cf6,#6366f1)' }}>
-            {seeding ? 'Chargement…' : 'Charger mes exemples'}
-          </button>
-        </div>
-      );
-    }
-    return null;
-  }
+  // Les mails non reconnus s'affichent toujours, même sans vente à relier.
+  const mailsAVerifier = <MailsAVerifier userId={userId} refreshKey={pendingSales} />;
+  if (waiting.length === 0) return <div className="empty:hidden">{mailsAVerifier}</div>;
 
   return (
-    <div className="mb-6 rounded-2xl overflow-hidden"
+    <div className="space-y-4">
+    {mailsAVerifier}
+    <div className="rounded-2xl overflow-hidden"
       style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.22)' }}>
       <div className="px-4 sm:px-5 py-3 flex items-center gap-2"
         style={{ background: 'rgba(99,102,241,0.12)' }}>
@@ -119,72 +69,117 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
       <div className="p-3 sm:p-4 space-y-3">
         {err && <p className="text-xs text-red-300 px-1">{err}</p>}
         {waiting.map((sale) => {
-          const candidates = rankCandidates(sale, purchases);
-          const selected = chosen[sale.id] ?? bestGuessId(sale, purchases);
+          const same = sameSizeStock(sale, purchases);
+          const all = rankCandidates(sale, purchases);
+          const candidates = showAll[sale.id] || same.length === 0 ? all : same;
+          const hiddenCount = all.length - candidates.length;
           return (
             <div key={sale.id} className="p-3 sm:p-4 rounded-xl"
               style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
               {/* La vente */}
-              <div className="flex items-center gap-2 flex-wrap mb-3">
+              <div className="flex items-center gap-2 flex-wrap mb-3 min-w-0 break-words">
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-md"
                   style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>VENDU</span>
                 <span className="text-sm font-bold text-white">{sale.article}</span>
                 {sale.size && <span className="text-xs text-white/50">taille {sale.size}</span>}
                 {sale.color && <span className="text-xs text-white/40">· {sale.color}</span>}
+                <span className="text-xs text-white/40 flex items-center gap-1">
+                  · le {sale.date}
+                  {sale.dateApprox && (
+                    <span title="Mail « Ton article s'est vendu » non trouvé : date de la transaction finalisée"
+                      className="flex items-center gap-0.5 text-amber-300/80"><Clock className="w-3 h-3" /> date approx.</span>
+                  )}
+                </span>
                 <span className="text-sm font-bold text-emerald-300 ml-auto">{money(sale.salePrice)}</span>
               </div>
 
-              {/* Choix de l'achat correspondant */}
+              {/* Articles du stock : 1 clic pour relier */}
               {candidates.length === 0 ? (
                 <p className="text-xs text-white/40 flex items-center gap-1.5">
                   <Package className="w-3.5 h-3.5" /> Aucun article en stock — ajoute la vente à la main.
                 </p>
               ) : (
-                <div className="flex items-center gap-2">
-                  <Link2 className="w-4 h-4 text-white/30 shrink-0" />
-                  <select value={selected} onChange={(e) => pick(sale.id, e.target.value)}
-                    className="flex-1 min-w-0 text-sm rounded-lg px-3 py-2 text-white outline-none"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                    <option value="" style={{ background: '#1e1b2e' }}>— choisir l'article acheté —</option>
-                    {candidates.map((p) => (
-                      <option key={p.id} value={p.id} style={{ background: '#1e1b2e' }}>
-                        {p.model ? `[${p.model}] ` : ''}{p.article} · {p.size || '?'} · {p.color} · payé {money(p.purchasePrice)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Aperçu du bénéfice */}
-              {selected && (() => {
-                const p = purchases.find((x) => x.id === selected);
-                if (!p) return null;
-                const profit = sale.salePrice - p.purchasePrice;
-                return (
-                  <p className="text-xs text-white/50 mt-2 pl-6">
-                    Bénéfice estimé : <span className="font-bold text-white">{money(profit)}</span>
-                    <span className="text-white/30"> ({money(sale.salePrice)} − {money(p.purchasePrice)})</span>
+                <>
+                  <p className="text-[11px] text-white/40 mb-2">
+                    {same.length > 0 && !showAll[sale.id]
+                      ? `Stock en taille ${sale.size} — quel article as-tu vendu ?`
+                      : "Tout le stock — quel article as-tu vendu ?"}
                   </p>
-                );
-              })()}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                    {candidates.map((p) => {
+                      const profit = sale.salePrice - p.purchasePrice;
+                      const link = sheinLink(p);
+                      const best = bestGuessId(sale, purchases) === p.id;
+                      return (
+                        <div key={p.id} className="flex items-start gap-3 p-2 rounded-lg min-w-0"
+                          style={{ background: 'rgba(255,255,255,0.04)', border: best ? '1px solid rgba(16,185,129,0.45)' : '1px solid rgba(255,255,255,0.08)' }}>
+                          {p.photoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={p.photoUrl} alt={p.article} loading="lazy" referrerPolicy="no-referrer"
+                              className="w-16 h-24 object-cover rounded-md shrink-0" />
+                          ) : (
+                            <div className="w-16 h-24 rounded-md flex items-center justify-center shrink-0"
+                              style={{ background: 'rgba(99,102,241,0.15)' }}>
+                              <Package className="w-4 h-4 text-indigo-300" />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            {best && <p className="text-[10px] font-bold text-emerald-300 uppercase tracking-wide mb-0.5">Meilleure correspondance</p>}
+                            <p className="text-sm font-semibold text-white line-clamp-2 break-words">
+                              {p.model ? `[${p.model}] ` : ''}{p.article}
+                            </p>
+                            <p className="text-[11px] text-white/40 mt-0.5">
+                              {p.size || '?'}{p.color ? ` · ${p.color}` : ''} · payé {money(p.purchasePrice)}
+                            </p>
+                            <p className="text-[11px] text-white/50 mt-0.5">
+                              Bénéfice : <span className={`font-bold ${profit >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{money(profit)}</span>
+                            </p>
+                            <div className="flex items-center gap-2 flex-wrap mt-2">
+                              <button onClick={() => confirm(sale, p.id)} disabled={busy === sale.id}
+                                title="Relier cette vente à cet article"
+                                className="flex items-center gap-1.5 px-4 py-2 min-h-[44px] rounded-lg font-bold text-sm text-white active:scale-[0.97] transition-all disabled:opacity-40"
+                                style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
+                                <Link2 className="w-3.5 h-3.5" /> Relier
+                              </button>
+                              {link ? (
+                                <a href={link.url} target="_blank" rel="noopener noreferrer"
+                                  title={link.kind === 'order' ? 'Le mail ne contient pas le lien produit : ouvre la commande Shein' : 'Ouvrir la fiche Shein'}
+                                  className="flex items-center gap-1 px-2 min-h-[44px] text-xs font-semibold text-indigo-300 hover:text-indigo-200">
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                  {link.kind === 'order' ? 'Voir la commande Shein' : 'Voir sur Shein'}
+                                </a>
+                              ) : (
+                                <span className="text-[11px] text-white/30">Pas de lien Shein : à coller dans Stock</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {hiddenCount > 0 && (
+                    <button onClick={() => setShowAll((v) => ({ ...v, [sale.id]: true }))}
+                      className="text-xs text-indigo-300 hover:text-indigo-200 mt-2 min-h-[44px] px-1">
+                      Voir aussi les {hiddenCount} autre{hiddenCount > 1 ? 's' : ''} article{hiddenCount > 1 ? 's' : ''} du stock
+                    </button>
+                  )}
+                </>
+              )}
 
               {/* Actions */}
               <div className="flex items-center gap-2 mt-3">
-                <button onClick={() => confirm(sale)} disabled={!selected || busy === sale.id}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold text-sm text-white transition-all active:scale-[0.97] disabled:opacity-40"
-                  style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
-                  <Check className="w-4 h-4" /> {busy === sale.id ? '…' : 'Confirmer'}
-                </button>
                 <button onClick={() => ignoreSale(sale)} disabled={busy === sale.id}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-sm text-white/50 hover:text-white/80 transition-all disabled:opacity-40"
+                  className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg font-semibold text-sm text-white/50 hover:text-white/80 transition-all disabled:opacity-40"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <X className="w-3.5 h-3.5" /> Aucune
+                  <X className="w-3.5 h-3.5" /> Aucun de ces articles
                 </button>
+                {busy === sale.id && <span className="text-xs text-white/40">Enregistrement…</span>}
               </div>
             </div>
           );
         })}
       </div>
+    </div>
     </div>
   );
 }

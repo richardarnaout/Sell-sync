@@ -1,5 +1,5 @@
 // ── Auto-import : stock (achats Shein) + ventes détectées (Vinted finalisées) ──
-// Types, mapping DB, logique d'appariement et données d'exemple pour le test.
+// Types, mapping DB et logique d'appariement.
 
 export interface Purchase {
   id: string;
@@ -12,17 +12,20 @@ export interface Purchase {
   sku: string;
   orderNumber: string;
   status: 'en_stock' | 'vendu' | 'ignore';
+  photoUrl?: string; // photo du mail Shein (T-021)
+  sheinUrl?: string; // lien Shein, saisi à la main (facultatif)
 }
 
 export interface PendingSale {
   id: string;
-  date: string; // YYYY-MM-DD (date de vente finalisée)
+  date: string; // YYYY-MM-DD (date du mail « s'est vendu », sinon du « finalisée »)
   article: string;
   color: string;
   size: string;
   salePrice: number;
   transactionNumber: string;
   status: 'en_attente' | 'traite' | 'ignore';
+  dateApprox?: boolean; // true = pas de mail « s'est vendu » rapproché : date du « finalisée »
 }
 
 // ── Mapping DB (snake_case) ──
@@ -31,6 +34,9 @@ export function purchaseToDb(p: Purchase, userId: string) {
     id: p.id, user_id: userId, date: p.date, article: p.article, model: p.model,
     color: p.color, size: p.size, purchase_price: p.purchasePrice, sku: p.sku,
     order_number: p.orderNumber, status: p.status,
+    // Colonnes T-021 envoyées seulement si remplies : l'app marche encore avant la migration SQL.
+    ...(p.photoUrl ? { photo_url: p.photoUrl } : {}),
+    ...(p.sheinUrl ? { shein_url: p.sheinUrl } : {}),
   };
 }
 export function dbToPurchase(r: any): Purchase {
@@ -39,6 +45,7 @@ export function dbToPurchase(r: any): Purchase {
     color: r.color || '', size: r.size || '',
     purchasePrice: Number(r.purchase_price) || 0, sku: r.sku || '',
     orderNumber: r.order_number || '', status: r.status || 'en_stock',
+    photoUrl: r.photo_url || '', sheinUrl: r.shein_url || '',
   };
 }
 export function pendingToDb(s: PendingSale, userId: string) {
@@ -52,13 +59,40 @@ export function dbToPending(r: any): PendingSale {
   return {
     id: r.id, date: r.date, article: r.article, color: r.color || '', size: r.size || '',
     salePrice: Number(r.sale_price) || 0, transactionNumber: r.transaction_number || '',
-    status: r.status || 'en_attente',
+    status: r.status || 'en_attente', dateApprox: !!r.date_approx,
   };
 }
 
+// ── Validation atomique (T-022.7) : 1 seul appel RPC, 3 écritures en une transaction SQL ──
+// Prérequis : supabase/valider-vente.sql exécuté. saleId = clé d'idempotence (un clic = un id).
+export async function validerVente(
+  pendingId: string, purchaseId: string, article: string, productUrl?: string,
+  saleId: string = crypto.randomUUID(),
+): Promise<{ ok: boolean; deja_traite: boolean; sale_id: string }> {
+  // Import dynamique : le client exige des variables d'env., que les scripts de test n'ont pas.
+  const { supabase } = await import('./supabaseClient');
+  const { data, error } = await supabase.rpc('valider_vente', {
+    p_pending_id: pendingId, p_purchase_id: purchaseId, p_sale_id: saleId,
+    p_article: article, p_product_url: productUrl || null,
+  });
+  if (error) throw error;
+  return data as { ok: boolean; deja_traite: boolean; sale_id: string };
+}
+
 // ── Appariement vente → achat ──
+/** « M / 38 / 10 », « taille M », « m » → « M » : on compare la première taille écrite. */
+export function sizeKey(s: string): string {
+  return s.replace(/^\s*taille\s+/i, '').split(/[\/(]/)[0].trim().toUpperCase();
+}
 const sizeEq = (a: string, b: string) =>
-  !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+  !!a && !!b && sizeKey(a) === sizeKey(b);
+
+/** Articles en stock de la même taille que la vente (plus récents d'abord). */
+export function sameSizeStock(sale: PendingSale, stock: Purchase[]): Purchase[] {
+  return stock
+    .filter((p) => p.status === 'en_stock' && sizeEq(p.size, sale.size))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
 
 /** Candidats d'achat pour une vente : uniquement le stock en cours, même taille d'abord, plus récent ensuite. */
 export function rankCandidates(sale: PendingSale, stock: Purchase[]): Purchase[] {
@@ -78,18 +112,25 @@ export function bestGuessId(sale: PendingSale, stock: Purchase[]): string {
   return sameSize.length === 1 ? sameSize[0].id : '';
 }
 
-// ── Données d'exemple = tes VRAIS mails déjà extraits (backtest 2026-07-23) ──
-// Sert à tester le flux complet sur le preview, sans dépendre de l'ingestion Gmail.
-export function sampleData(): { purchases: Omit<Purchase, 'id'>[]; pending: Omit<PendingSale, 'id'>[] } {
-  return {
-    purchases: [
-      { date: '2026-07-15', article: 'Robe tube ajustée froncée de couleur unie', model: 'SHEIN PETITE', color: 'Jaune citron', size: 'S', purchasePrice: 22.76, sku: 'sz25061793992493144', orderNumber: 'USO18828W0000002CB6', status: 'en_stock' },
-      { date: '2026-07-15', article: "Robe d'été élégante avec laçage dos nu", model: 'Unadoll', color: 'Bleu marine', size: 'M', purchasePrice: 11.72, sku: 'sz251210180466917581137', orderNumber: 'USO18828W0000002CB6', status: 'en_stock' },
-      { date: '2026-07-15', article: 'Ceinture en PU à boucle', model: '', color: 'Noir', size: '130', purchasePrice: 0, sku: 'sc2401218075474815', orderNumber: 'USO18828W0000002CB6', status: 'en_stock' },
-      { date: '2026-07-15', article: 'Ventilateur de poche pliable', model: 'sweetfull', color: 'Blanc', size: '', purchasePrice: 6.87, sku: 'sh25012498813422316', orderNumber: 'USO18828W0000002CB6', status: 'en_stock' },
-    ],
-    pending: [
-      { date: '2026-07-18', article: 'Robe Violetta Tifany', color: 'lila', size: 'M', salePrice: 29, transactionNumber: '20886805143', status: 'en_attente' },
-    ],
-  };
+// ── Lien Shein d'un article (T-024) ──
+// Le mail Shein ne contient pas de lien produit, seulement un lien vers la commande (paramètre billno).
+export const SHEIN_ORDER_BASE = 'https://shein.com/onelink/0/order-detail-fr?billno=';
+
+/** Lien à ouvrir pour reconnaître l'article : 1) lien produit saisi à la main, 2) page de la commande, sinon null. */
+export function sheinLink(p: Pick<Purchase, 'sheinUrl' | 'orderNumber'>): { url: string; kind: 'product' | 'order' } | null {
+  const manual = (p.sheinUrl || '').trim();
+  if (/^https?:\/\//i.test(manual)) return { url: manual, kind: 'product' };
+  const order = (p.orderNumber || '').trim();
+  if (order) return { url: SHEIN_ORDER_BASE + encodeURIComponent(order), kind: 'order' };
+  return null;
 }
+
+// ── Ancienneté du stock ──
+export const STALE_DAYS = 60;
+/** Nombre de jours entiers depuis `date` (YYYY-MM-DD) jusqu'à `now` (YYYY-MM-DD). */
+export function ageDays(date: string, now: string): number {
+  const d = (s: string) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+  return Math.max(0, Math.round((d(now) - d(date)) / 86400000));
+}
+export const isStale = (p: Pick<Purchase, 'status' | 'date'>, now: string) =>
+  p.status === 'en_stock' && ageDays(p.date, now) > STALE_DAYS;

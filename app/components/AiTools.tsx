@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
 import { Sparkles, Wand2, Tag, Copy, Check, Loader2, Euro } from 'lucide-react';
 
 // Forme minimale d'une vente (structurellement compatible avec l'app).
@@ -28,9 +29,12 @@ async function postJSON<T>(url: string, body: unknown): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 75000);
   try {
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess.session?.access_token;
+    if (!token) throw new Error('Connecte-toi pour utiliser les outils IA.');
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
       signal: ctrl.signal,
     });

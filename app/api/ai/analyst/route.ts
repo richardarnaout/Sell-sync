@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateText } from 'ai';
+import { requireUser } from '../../../lib/requireUser';
 import { getModel, MODEL_ANALYST, profitOf, type SaleLike } from '../../../lib/ai';
 
 export const runtime = 'nodejs';
@@ -35,6 +36,8 @@ const str = (v: unknown, max = 100) => String(v ?? '').trim().slice(0, max);
 const num = (v: unknown) => { const n = Number(v); return isFinite(n) ? n : 0; };
 
 export async function POST(req: NextRequest) {
+  const denied = await requireUser(req);
+  if (denied) return denied;
   try {
     const body = await req.json();
     const raw: unknown[] = Array.isArray(body?.sales) ? body.sales.slice(0, MAX_SALES) : [];
