@@ -47,6 +47,20 @@ export default function Dashboard({ st }: { st: SalesStats }) {
           <p className="text-[10px] text-white/30 mt-2">Repère par année civile, sans valeur de conseil fiscal.</p>
         </div>
       </div>
+      {stats.perso.count > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <div className="p-4 rounded-2xl" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' }}>
+            <p className="text-[11px] uppercase tracking-wide text-white/35 font-semibold">Revente (achats Shein)</p>
+            <p className="text-sm text-white/80 mt-1">CA {stats.resale.revenue.toFixed(2).replace('.',',')} € · bénéfice <span className="font-bold">{stats.resale.profit.toFixed(2).replace('.',',')} €</span> · marge {stats.resale.margin.toFixed(1)} %</p>
+            <p className="text-xs text-white/40 mt-1">{stats.resale.count} vente{stats.resale.count > 1 ? 's' : ''}</p>
+          </div>
+          <div className="p-4 rounded-2xl" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' }}>
+            <p className="text-[11px] uppercase tracking-wide text-white/35 font-semibold">Ventes perso</p>
+            <p className="text-sm text-white/80 mt-1">CA {stats.perso.revenue.toFixed(2).replace('.',',')} €</p>
+            <p className="text-xs text-white/40 mt-1">{stats.perso.count} vente{stats.perso.count > 1 ? 's' : ''}, sans marge</p>
+          </div>
+        </div>
+      )}
       {stats.missing > 0 && (
         <p className="text-xs text-amber-300/90 mb-4">
           {stats.missing} vente{stats.missing > 1 ? 's' : ''} : prix d'achat manquant — exclue{stats.missing > 1 ? 's' : ''} du bénéfice et de la marge.

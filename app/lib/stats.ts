@@ -15,7 +15,7 @@ export function headlineStats(sales: Sale[], selectedMonth: string | null) {
   const totalCost    = filtered.reduce((s,x) => s + x.purchasePrice + x.shippingCost + x.boosterCost, 0);
   const avgSalePrice = filtered.length ? t.revenue / filtered.length : 0;
   // Marge = bénéfice total ÷ CA total (T-022.4) ; ventes sans prix d'achat exclues du bénéfice.
-  return { totalProfit: t.profit, totalRevenue: t.revenue, count: t.count, avgMargin: t.margin, totalCost, avgSalePrice, missing: t.missing };
+  return { totalProfit: t.profit, totalRevenue: t.revenue, count: t.count, avgMargin: t.margin, totalCost, avgSalePrice, missing: t.missing, resale: t.resale, perso: t.perso };
 }
 export type HeadlineStats = ReturnType<typeof headlineStats>;
 

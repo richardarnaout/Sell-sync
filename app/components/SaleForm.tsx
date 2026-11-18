@@ -188,11 +188,19 @@ export default function SaleForm({ f }: { f: SaleFormApi }) {
                 className="field-input w-full rounded-xl px-4 py-3 text-sm" />
             </FormField>
             <FormField label="Prix d'achat (€)">
-              <input type="number" min="0" step="0.01" placeholder="5,00"
-                value={form.purchasePrice} onChange={e => setForm({...form, purchasePrice:e.target.value})}
-                className="field-input w-full rounded-xl px-4 py-3 text-sm" />
+              <input type="number" min="0" step="0.01" placeholder={form.isPersonal ? 'Sans objet' : '5,00'}
+                disabled={form.isPersonal}
+                value={form.isPersonal ? '' : form.purchasePrice} onChange={e => setForm({...form, purchasePrice:e.target.value})}
+                className="field-input w-full rounded-xl px-4 py-3 text-sm disabled:opacity-40" />
             </FormField>
           </div>
+
+          <label className="flex items-center gap-3 min-h-[44px] cursor-pointer text-sm text-white/70">
+            <input type="checkbox" checked={form.isPersonal}
+              onChange={e => setForm({...form, isPersonal:e.target.checked, purchasePrice: e.target.checked ? '' : form.purchasePrice})}
+              className="w-5 h-5 accent-indigo-500" />
+            <span>Article perso (pas d'achat) <span className="text-white/35">— compté dans le CA, pas dans la marge</span></span>
+          </label>
 
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Frais de port (€)">

@@ -31,6 +31,7 @@ export function useSaleForm({ sales, setSales, templates, setTemplates, user, se
       shippingCost:  s.shippingCost  ? String(s.shippingCost)  : '',
       boosterCost:   s.boosterCost   ? String(s.boosterCost)   : '',
       productUrl:    s.productUrl ?? '',
+      isPersonal:    !!s.isPersonal,
     });
     setFormError(''); setShowForm(true);
   }, []);
@@ -95,7 +96,7 @@ export function useSaleForm({ sales, setSales, templates, setTemplates, user, se
 
   const liveProfit =
     (parseFloat(form.salePrice)     || 0) -
-    (parseFloat(form.purchasePrice) || 0) -
+    (form.isPersonal ? 0 : (parseFloat(form.purchasePrice) || 0)) -
     (parseFloat(form.shippingCost)  || 0) -
     (parseFloat(form.boosterCost)   || 0);
 
@@ -105,10 +106,12 @@ export function useSaleForm({ sales, setSales, templates, setTemplates, user, se
     if (!form.salePrice || isNaN(sp) || sp <= 0) { setFormError('Indique un prix de vente valide.'); return; }
     const updated = {
       date: form.date || today(), article: form.article.trim(), category: form.category, size: form.size,
-      purchasePrice: parseFloat(form.purchasePrice) || 0, salePrice: sp,
+      purchasePrice: form.isPersonal ? 0 : (parseFloat(form.purchasePrice) || 0), salePrice: sp,
       shippingCost:  parseFloat(form.shippingCost)  || 0,
       boosterCost:   parseFloat(form.boosterCost)   || 0,
       productUrl:    form.productUrl.trim() || undefined,
+      // true / false explicite seulement si utile (colonne ajoutée par articles-perso.sql)
+      isPersonal:    form.isPersonal ? true : (sales.find(s => s.id === editId)?.isPersonal ? false : undefined),
     };
     if (editId) {
       const sale = { ...sales.find(s => s.id === editId)!, ...updated };

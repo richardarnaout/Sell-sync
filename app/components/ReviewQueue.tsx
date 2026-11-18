@@ -38,6 +38,21 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
     } finally { setBusy(null); }
   }
 
+  // « Article perso » : vente sans achat Shein (seconde main) → créée en 1 appel SQL (valider_vente_perso).
+  async function confirmPerso(sale: PendingSale) {
+    setBusy(sale.id); setErr('');
+    try {
+      const { error } = await supabase.rpc('valider_vente_perso', {
+        p_pending_id: sale.id, p_sale_id: crypto.randomUUID(), p_article: sale.article, p_product_url: null,
+      });
+      if (error) throw error;
+      onChange();
+    } catch (e: any) {
+      setErr(/valider_vente_perso|is_personal/.test(e?.message || '')
+        ? "Lance d'abord supabase/articles-perso.sql dans Supabase." : (e?.message || 'Erreur.'));
+    } finally { setBusy(null); }
+  }
+
   // "Aucune" : on ignore cette vente détectée, tu la géreras à la main.
   async function ignoreSale(sale: PendingSale) {
     setBusy(sale.id); setErr('');
@@ -205,6 +220,12 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
                   className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg font-semibold text-sm text-white/50 hover:text-white/80 transition-all disabled:opacity-40"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <X className="w-3.5 h-3.5" /> Aucun de ces articles
+                </button>
+                <button onClick={() => confirmPerso(sale)} disabled={busy === sale.id}
+                  title="Vente d'un article à toi, sans prix d'achat : comptée dans le CA, pas dans la marge"
+                  className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg font-semibold text-sm text-indigo-200 hover:text-white transition-all disabled:opacity-40"
+                  style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)' }}>
+                  Article perso
                 </button>
                 {busy === sale.id && <span className="text-xs text-white/40">Enregistrement…</span>}
               </div>

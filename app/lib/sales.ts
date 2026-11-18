@@ -11,12 +11,14 @@ export interface Sale {
   shippingCost: number;
   boosterCost: number;
   productUrl?: string;
+  isPersonal?: boolean; // article perso (seconde main, pas d'achat Shein) : T-028
 }
 
 export interface FormState {
   article: string; category: string; size: string; date: string;
   purchasePrice: string; salePrice: string; shippingCost: string; boosterCost: string;
   productUrl: string;
+  isPersonal: boolean;
 }
 
 export interface Template {
@@ -40,7 +42,8 @@ export const CAT_COLORS: Record<string,string> = {
 };
 export const MONTH_COLORS = ['#6366f1','#06b6d4','#10b981','#f59e0b','#ef4444','#a78bfa','#ec4899','#14b8a6'];
 
-export function calcProfit(s: Sale) { return s.salePrice - s.purchasePrice - s.shippingCost - s.boosterCost; }
+// Article perso : pas de bénéfice calculé (CA seul), la marge de revente n'est pas faussée par un coût 0.
+export function calcProfit(s: Sale) { if (s.isPersonal) return 0; return s.salePrice - s.purchasePrice - s.shippingCost - s.boosterCost; }
 
 export function parseCSVRow(row: string): string[] {
   const result: string[] = [];
@@ -62,7 +65,7 @@ export function parseDate(str: string) { const [y,m,d] = str.split('-').map(Numb
 export const emptyForm = (): FormState => ({
   article:'', category:'Autre', size:'', date: today(),
   purchasePrice:'', salePrice:'', shippingCost:'', boosterCost:'',
-  productUrl:'',
+  productUrl:'', isPersonal:false,
 });
 
 // ── DB mapping ────────────────────────────────────────────────────────────
@@ -74,6 +77,8 @@ export function saleToDb(s: Sale, userId: string) {
     purchase_price: s.purchasePrice, sale_price: s.salePrice,
     shipping_cost: s.shippingCost, booster_cost: s.boosterCost,
     product_url: s.productUrl || null,
+    // Colonne is_personal (supabase/articles-perso.sql) : n'est envoyée que si elle sert, pour ne rien casser avant le SQL.
+    ...(s.isPersonal !== undefined ? { is_personal: s.isPersonal } : {}),
   };
 }
 export function dbToSale(row: any): Sale {
@@ -85,6 +90,7 @@ export function dbToSale(row: any): Sale {
     shippingCost: Number(row.shipping_cost) || 0,
     boosterCost: Number(row.booster_cost) || 0,
     productUrl: row.product_url || undefined,
+    isPersonal: row.is_personal === true ? true : undefined,
   };
 }
 export function templateToDb(t: Template, userId: string) {

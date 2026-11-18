@@ -140,7 +140,7 @@ export default function VintedAI() {
         {/* ════════════════ VENTES ════════════════ */}
         {tab === 'ventes' && (
           <SalesList sales={sales} byMonthDesc={st.byMonthDesc} selectedMonth={selectedMonth}
-            setSelectedMonth={setSelectedMonth} openForm={openForm} openEdit={openEdit} setDeleteId={setDeleteId}
+            setSelectedMonth={setSelectedMonth} openForm={openForm} openEdit={openEdit} setDeleteId={setDeleteId} setSales={setSales}
             filter={salesFilter} setFilter={setSalesFilter} />
         )}
 

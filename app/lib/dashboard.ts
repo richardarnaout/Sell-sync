@@ -5,25 +5,37 @@
 export interface SaleLite {
   date: string; // YYYY-MM-DD
   salePrice: number; purchasePrice: number; shippingCost: number; boosterCost: number;
+  isPersonal?: boolean; // article perso (T-028) : ni « prix d'achat manquant », ni bénéfice, ni marge
 }
 
 export const THRESHOLD_SALES = 30;      // seuil de déclaration plateformes (nb de ventes / année civile)
 export const THRESHOLD_REVENUE = 2000;  // seuil de déclaration plateformes (CA € / année civile)
 
-export const missingPurchase = (s: SaleLite) => !(s.purchasePrice > 0);
-export const saleProfit = (s: SaleLite) => s.salePrice - s.purchasePrice - s.shippingCost - s.boosterCost;
+export const missingPurchase = (s: SaleLite) => !s.isPersonal && !(s.purchasePrice > 0);
+export const saleProfit = (s: SaleLite) => s.isPersonal ? 0 : s.salePrice - s.purchasePrice - s.shippingCost - s.boosterCost;
 
-export interface Totals { count: number; revenue: number; profit: number; margin: number; missing: number; }
+export interface Totals {
+  count: number; revenue: number; profit: number; margin: number; missing: number;
+  // T-028 : revente (achats Shein) et ventes perso séparées ; count/revenue ci-dessus restent globaux.
+  resale: { count: number; revenue: number; profit: number; margin: number };
+  perso: { count: number; revenue: number };
+}
 
 // Marge = bénéfice total ÷ CA total (sur les ventes dont le prix d'achat est connu), jamais une moyenne de marges.
 export function totals(sales: SaleLite[]): Totals {
-  let revenue = 0, profit = 0, knownRevenue = 0, missing = 0;
+  let revenue = 0, profit = 0, knownRevenue = 0, missing = 0, persoCount = 0, persoRevenue = 0;
   for (const s of sales) {
     revenue += s.salePrice;
+    if (s.isPersonal) { persoCount++; persoRevenue += s.salePrice; continue; }
     if (missingPurchase(s)) { missing++; continue; }
     profit += saleProfit(s); knownRevenue += s.salePrice;
   }
-  return { count: sales.length, revenue, profit, margin: knownRevenue > 0 ? (profit / knownRevenue) * 100 : 0, missing };
+  const margin = knownRevenue > 0 ? (profit / knownRevenue) * 100 : 0;
+  return {
+    count: sales.length, revenue, profit, margin, missing,
+    resale: { count: sales.length - persoCount, revenue: revenue - persoRevenue, profit, margin },
+    perso: { count: persoCount, revenue: persoRevenue },
+  };
 }
 
 export function monthTable(sales: SaleLite[]): (Totals & { key: string })[] {
@@ -63,7 +75,7 @@ export function dailyProfit(sales: SaleLite[], key: string, lastDay: number): { 
   const out = Array.from({ length: lastDay }, (_, i) => ({ day: i + 1, profit: 0 }));
   for (const s of salesOfMonth(sales, key)) {
     const d = +s.date.slice(8, 10);
-    if (d >= 1 && d <= lastDay && !missingPurchase(s)) out[d - 1].profit += saleProfit(s);
+    if (d >= 1 && d <= lastDay && !s.isPersonal && !missingPurchase(s)) out[d - 1].profit += saleProfit(s);
   }
   return out;
 }

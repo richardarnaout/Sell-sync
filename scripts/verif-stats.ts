@@ -4,12 +4,12 @@
  */
 import assert from 'node:assert/strict';
 import type { Sale } from '../app/lib/sales';
-import { parseSalesCSV, salesToCSV } from '../app/lib/sales';
+import { parseSalesCSV, salesToCSV, calcProfit } from '../app/lib/sales';
 import {
   headlineStats, groupByMonth, byCategory, compareMonths, topArticles, topSizes,
   bestPerMonth, byDayOfWeek, buildSuggestions, chartMonthly, bestMonth, computeGoal,
 } from '../app/lib/stats';
-import { prevMonthKey, evolutionPct, dailyProfit } from '../app/lib/dashboard';
+import { prevMonthKey, evolutionPct, dailyProfit, totals, missingPurchase, yearCounter } from '../app/lib/dashboard';
 import { sheinLink, SHEIN_ORDER_BASE, ageDays, isStale } from '../app/lib/stock';
 
 let passed = 0;
@@ -87,6 +87,26 @@ test('CSV aller-retour', () => {
   const back = parseSalesCSV(salesToCSV(SALES));
   assert.equal(back.length, 5);
   assert.deepEqual(back.map(s => [s.date, s.article, s.salePrice, s.purchasePrice]), SALES.map(s => [s.date, s.article, s.salePrice, s.purchasePrice]));
+});
+
+test('articles perso (T-028)', () => {
+  const perso: Sale = { ...mk('p1', '2026-11-07', 'Veste perso', 'Manteaux', 'M', 0, 40), isPersonal: true };
+  const all = [...SALES, perso];
+  assert.equal(missingPurchase(perso), false);          // plus « prix d'achat manquant »
+  const t = totals(all);
+  assert.equal(t.missing, 1);                           // seule la vente 4 reste manquante
+  assert.equal(t.count, 6);
+  assert.equal(t.revenue, 142);                         // CA global inclut le perso
+  assert.deepEqual(t.perso, { count: 1, revenue: 40 });
+  assert.equal(t.resale.revenue, 102);
+  assert.equal(t.profit, totals(SALES).profit);         // bénéfice inchangé
+  assert.equal(t.margin, totals(SALES).margin);         // marge de revente non faussée
+  assert.equal(calcProfit(perso), 0);
+  assert.equal(headlineStats(all, null).perso.revenue, 40);
+  assert.equal(groupByMonth(all)[1][1].profit, groupByMonth(SALES)[1][1].profit);
+  assert.equal(dailyProfit(all, '2026-11', 30)[6].profit, dailyProfit(SALES, '2026-11', 30)[6].profit);
+  assert.equal(yearCounter(all, 2026).count, 6);        // seuils annuels : toutes les ventes
+  assert.equal(yearCounter(all, 2026).revenue, 142);
 });
 
 console.log(`\n${passed}/${passed} vérifications OK`);

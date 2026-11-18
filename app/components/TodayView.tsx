@@ -47,6 +47,7 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
           </div>
         </div>
       )}
+      {cur.perso.count > 0 && <p className="text-xs text-white/55 mt-3">Revente {eur(cur.resale.revenue)} (marge {cur.resale.margin.toFixed(0)} %) · perso {eur(cur.perso.revenue)} ({cur.perso.count} vente{cur.perso.count > 1 ? 's' : ''}, sans marge).</p>}
       {cur.missing > 0 && <p className="text-xs text-amber-300/90 mt-3">{cur.missing} vente{cur.missing > 1 ? 's' : ''} sans prix d'achat : exclue{cur.missing > 1 ? 's' : ''} du bénéfice.</p>}
     </div>
   );
@@ -84,7 +85,9 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
                 <p className="text-sm text-white truncate">{s.article}</p>
                 <p className="text-[11px] text-white/40">Vendu {fmtPlain(s.salePrice)}{s.size ? ` · ${s.size}` : ''}</p>
               </div>
-              {missingPurchase(s)
+              {s.isPersonal
+                ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.6)' }}>perso</span>
+                : missingPurchase(s)
                 ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background:'rgba(248,113,113,0.15)', color:'#fca5a5' }}>à compléter</span>
                 : <span className="text-sm font-bold shrink-0" style={{ color: calcProfit(s) >= 0 ? '#818cf8' : '#f87171' }}>{fmt(calcProfit(s))}</span>}
               <button onClick={() => openEdit(s)} aria-label="Modifier la vente" className="shrink-0 w-11 h-11 flex items-center justify-center rounded-lg text-white/30 hover:text-indigo-400">
