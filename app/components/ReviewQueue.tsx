@@ -138,14 +138,20 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
                               <Package className="w-4 h-4 text-indigo-300" />
                             </div>
                           )}
-                          <div className="min-w-0 flex-1 relative">
-                            <button onClick={() => setRejected(sale, [...rejected, p.id])} disabled={busy === sale.id}
-                              title="Ce n'est pas cet article : ne plus me le proposer pour cette vente" aria-label="Écarter cette suggestion"
-                              className="absolute -top-1 -right-1 w-11 h-11 flex items-center justify-center rounded-lg text-white/40 hover:text-white/80 disabled:opacity-40">
-                              <X className="w-4 h-4" />
-                            </button>
-                            {best && <p className="text-[10px] font-bold text-emerald-300 uppercase tracking-wide mb-0.5">Meilleure correspondance</p>}
-                            <p className="text-sm font-semibold text-white line-clamp-2 break-words pr-10">
+                          <div className="min-w-0 flex-1">
+                            {/* En-tête : « Meilleure correspondance » + croix bien visible pour écarter la suggestion */}
+                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                              {best
+                                ? <p className="text-[10px] font-bold text-emerald-300 uppercase tracking-wide">Meilleure correspondance</p>
+                                : <span />}
+                              <button onClick={() => setRejected(sale, [...rejected, p.id])} disabled={busy === sale.id}
+                                title="Ce n'est pas cet article : ne plus me le proposer pour cette vente" aria-label="Écarter cette suggestion"
+                                className="shrink-0 flex items-center gap-1 px-2.5 min-h-[36px] rounded-lg text-xs font-semibold text-red-200 hover:text-white active:scale-[0.97] transition-all disabled:opacity-40"
+                                style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.45)' }}>
+                                <X className="w-4 h-4" /> Pas celui-ci
+                              </button>
+                            </div>
+                            <p className="text-sm font-semibold text-white line-clamp-2 break-words">
                               {p.model ? `[${p.model}] ` : ''}{p.article}
                             </p>
                             <p className="text-[11px] text-white/40 mt-0.5">
