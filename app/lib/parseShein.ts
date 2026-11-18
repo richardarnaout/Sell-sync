@@ -10,6 +10,15 @@
  */
 import { cleanLines, fold, labelValue, parseAmount, findDate } from './parseVinted';
 
+/**
+ * Texte brut Gmail : une photo juste avant « SKU: » (« [image: SHEIN Manteau…] SKU: … ») porte le nom
+ * de l'article dans son texte alternatif → on le garde comme texte. Les autres marqueurs sont retirés
+ * par cleanLines. T-021.2.
+ */
+function keepAltBeforeSku(body: string): string {
+  return body.replace(/\[image:\s*([^\]\n]+)\][\s|]*(?=SKU\s*:)/gi, '$1 ');
+}
+
 export interface SheinItem {
   name: string; // nom complet tel qu'écrit par Shein
   model: string; // « SHEIN EZwear », « SHEIN » ou '' : sert au titre Vinted
@@ -50,7 +59,10 @@ export function parseSheinDate(raw: string): string {
 export function isSheinOrderMail(subject: string, body: string, from = ''): boolean {
   const f = fold(`${subject}\n${body}`);
   const sheinish = /shein/.test(fold(from)) || /shein/.test(f);
-  return sheinish && /confirmation de (votre|ta) commande/.test(f) && /sku\s*:/.test(f);
+  // Expéditeur Shein + sujet de confirmation : reconnu même sans « SKU: » (le découpage échouera alors
+  // en 422 et le mail apparaîtra dans « Mails à vérifier » au lieu d'être ignoré en silence). T-021.2.
+  const fromShein = /shein/.test(fold(from));
+  return sheinish && /confirmation de (votre|ta) commande/.test(f) && (/sku\s*:/.test(f) || fromShein);
 }
 
 /** URLs des photos produits dans le HTML, dans l'ordre, sans doublons. */
@@ -86,7 +98,7 @@ export function splitColorSize(raw: string): { color: string; size: string } {
  */
 export function parseSheinOrder(subject: string, body: string, receivedDate: string, html = '', from = ''): SheinParseResult {
   if (!isSheinOrderMail(subject, body, from)) return { ok: false, reason: 'not_shein_order' };
-  const lines = cleanLines(body);
+  const lines = cleanLines(keepAltBeforeSku(body));
   const text = lines.join('\n');
 
   const orderNumber =

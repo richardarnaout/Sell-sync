@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'crypto';
 import { parseVintedFinalized, isFinalizedMail, isSoldMail, parseVintedSold, articleKey, type VintedSale } from './parseVinted';
 import { parseSheinOrder, isSheinOrderMail, type SheinOrder } from './parseShein';
+import { matchScore, uniqueMatch, noticeWindow, saleWindow, type MatchSide } from './matchSale';
 
 /**
  * Logique du webhook, sans dépendance réseau. Trois sortes de mails :
@@ -18,6 +19,7 @@ export interface MailInput {
   receivedDate: string; // YYYY-MM-DD
   html?: string; // HTML du mail (Shein seulement : photos)
   from?: string; // expéditeur
+  hint?: string; // recherche Gmail qui a trouvé le mail ('vendu' | 'finalise' | 'shein'), facultatif
 }
 
 export interface PendingRow {
@@ -41,8 +43,27 @@ export interface SoldNoticeRow {
   article: string;
   article_key: string;
   size: string | null;
+  price: number | null; // prix lu dans le mail « s'est vendu » (colonne ajoutée par rattrapage-2026-11-18.sql)
   mail_fingerprint: string;
   source_account: string;
+}
+
+/** Avis « s'est vendu » non encore rattaché, candidat au rapprochement. */
+export interface NoticeCandidate {
+  id: string;
+  date: string;
+  article: string;
+  size: string | null;
+  price: number | null;
+}
+
+/** Vente en attente à date approximative, candidate au rapprochement. */
+export interface PendingCandidate {
+  id: string;
+  date: string;
+  article: string;
+  size: string | null;
+  sale_price: number | null;
 }
 
 export interface PurchaseRow {
@@ -74,12 +95,14 @@ export interface UnparsedRow {
 export interface ImportDeps {
   /** Insère une ligne ; renvoie 'duplicate' si une contrainte unique refuse (code Postgres 23505). */
   insertPending: (row: PendingRow) => Promise<'inserted' | 'duplicate'>;
-  /** Avis « s'est vendu » non utilisé, même article, daté au plus tard `onOrBefore` (le plus récent). */
-  findSoldNotice?: (userId: string, articleKey: string, onOrBefore: string) => Promise<{ id: string; date: string } | null>;
+  /** Avis « s'est vendu » non utilisés (used = false) datés entre `from` et `to` inclus. */
+  listSoldNotices?: (userId: string, from: string, to: string) => Promise<NoticeCandidate[]>;
   markNoticeUsed?: (id: string) => Promise<void>;
   insertSoldNotice?: (row: SoldNoticeRow) => Promise<{ status: 'inserted' | 'duplicate'; id?: string }>;
-  /** Cas inverse (« finalisée » traité avant « s'est vendu ») : corrige la date d'une vente approximative. */
-  fixPendingDate?: (userId: string, articleKey: string, date: string) => Promise<boolean>;
+  /** Ventes en attente avec date_approx = true datées entre `from` et `to` inclus. */
+  listApproxPending?: (userId: string, from: string, to: string) => Promise<PendingCandidate[]>;
+  /** Cas inverse (« finalisée » traité avant « s'est vendu ») : pose la vraie date (seulement si encore approximative). */
+  setPendingDate?: (pendingId: string, date: string) => Promise<boolean>;
   insertPurchase?: (row: PurchaseRow) => Promise<'inserted' | 'duplicate'>;
   /** Note un mail non reconnu (422) pour l'encart « à vérifier » de l'app. Un échec ici ne change pas la réponse. */
   recordUnparsed?: (row: UnparsedRow) => Promise<void>;
@@ -138,9 +161,11 @@ export function mailFingerprint(m: MailInput): string {
 export type MailKind = 'vinted_finalized' | 'vinted_sold' | 'shein_order' | null;
 
 export function detectKind(m: Pick<MailInput, 'subject' | 'body' | 'from'>): MailKind {
+  // Shein d'abord : une confirmation de commande Shein (expéditeur / sujet explicites) ne doit jamais
+  // être prise pour un mail Vinted à cause d'un mot du corps.
+  if (isSheinOrderMail(m.subject, m.body, m.from)) return 'shein_order';
   if (isFinalizedMail(m.subject, m.body)) return 'vinted_finalized';
   if (isSoldMail(m.subject, m.body)) return 'vinted_sold';
-  if (isSheinOrderMail(m.subject, m.body, m.from)) return 'shein_order';
   return null;
 }
 
@@ -167,6 +192,8 @@ export async function importMail(m: MailInput, userId: string, deps: ImportDeps)
 
 async function importByKind(m: MailInput, userId: string, deps: ImportDeps): Promise<ImportOutcome> {
   const kind = detectKind(m);
+  // Trouvé par la recherche Gmail Shein mais pas reconnu : 422 (noté dans « Mails à vérifier »), pas ignoré en silence.
+  if (!kind && m.hint === 'shein') return { status: 'unparsed', reason: 'mail Shein non reconnu comme confirmation de commande' };
   if (kind === 'vinted_sold') return importSold(m, userId, deps);
   if (kind === 'shein_order') return importShein(m, userId, deps);
   if (kind !== 'vinted_finalized') return { status: 'ignored', reason: 'mail non reconnu (ni Vinted finalisée / vendu, ni commande Shein)' };
@@ -188,9 +215,10 @@ async function importByKind(m: MailInput, userId: string, deps: ImportDeps): Pro
     };
   }
 
-  // Date de vente = date du mail « s'est vendu » du même article ; à défaut, date du « finalisée » (approx).
+  // Date de vente = date du mail « s'est vendu » du même article (rapprochement prudent, matchSale.ts) ;
+  // à défaut ou en cas de doute, date du « finalisée » (date_approx = true).
   const key = articleKey(sale.article);
-  const notice = deps.findSoldNotice ? await deps.findSoldNotice(userId, key, sale.date) : null;
+  const notice = await findNoticeFor(userId, { article: sale.article, size: sale.size, price: sale.price, date: sale.date }, deps);
   const date = notice?.date ?? sale.date;
 
   const status = await deps.insertPending({
@@ -218,15 +246,53 @@ async function importSold(m: MailInput, userId: string, deps: ImportDeps): Promi
   const n = parsed.notice;
   const key = articleKey(n.article);
   const r = await deps.insertSoldNotice({
-    user_id: userId, date: n.date, article: n.article, article_key: key, size: n.size || null,
+    user_id: userId, date: n.date, article: n.article, article_key: key, size: n.size || null, price: n.price,
     mail_fingerprint: mailFingerprint(m), source_account: m.account.toLowerCase(),
   });
   let fixedPending = false;
-  if (r.status === 'inserted' && deps.fixPendingDate) {
-    fixedPending = await deps.fixPendingDate(userId, key, n.date);
-    if (fixedPending && r.id && deps.markNoticeUsed) await deps.markNoticeUsed(r.id);
+  if (r.status === 'inserted' && r.id && deps.setPendingDate) {
+    const pending = await findPendingFor(userId, { id: r.id, date: n.date, article: n.article, size: n.size || null, price: n.price }, deps);
+    if (pending) fixedPending = await deps.setPendingDate(pending.id, n.date);
+    if (fixedPending && deps.markNoticeUsed) await deps.markNoticeUsed(r.id);
   }
   return { status: r.status, kind: 'vinted_sold', date: n.date, fixedPending };
+}
+
+const pendingSide = (p: PendingCandidate): MatchSide => ({ article: p.article, size: p.size, price: p.sale_price, date: p.date });
+
+/**
+ * Avis « s'est vendu » d'une vente finalisée : un seul candidat retenu, et cet avis ne doit pas
+ * convenir aussi à une autre vente en attente approximative (sinon : doute → rien).
+ */
+async function findNoticeFor(userId: string, sale: MatchSide, deps: ImportDeps): Promise<NoticeCandidate | null> {
+  if (!deps.listSoldNotices) return null;
+  const w = noticeWindow(sale.date);
+  const notice = uniqueMatch(await deps.listSoldNotices(userId, w.from, w.to), (n) => matchScore(sale, n));
+  if (!notice) return null;
+  if (deps.listApproxPending) {
+    const sw = saleWindow(notice.date);
+    const others = (await deps.listApproxPending(userId, sw.from, sw.to)).filter((p) => matchScore(pendingSide(p), notice) !== null);
+    if (others.length) return null;
+  }
+  return notice;
+}
+
+/**
+ * Cas inverse : vente approximative d'un avis qui arrive après le « finalisée ». Une seule vente retenue,
+ * et elle ne doit convenir à aucun autre avis non utilisé.
+ */
+async function findPendingFor(userId: string, notice: NoticeCandidate, deps: ImportDeps): Promise<PendingCandidate | null> {
+  if (!deps.listApproxPending) return null;
+  const w = saleWindow(notice.date);
+  const pending = uniqueMatch(await deps.listApproxPending(userId, w.from, w.to), (p) => matchScore(pendingSide(p), notice));
+  if (!pending) return null;
+  if (deps.listSoldNotices) {
+    const nw = noticeWindow(pending.date);
+    const others = (await deps.listSoldNotices(userId, nw.from, nw.to))
+      .filter((n) => n.id !== notice.id && matchScore(pendingSide(pending), n) !== null);
+    if (others.length) return null;
+  }
+  return pending;
 }
 
 async function importShein(m: MailInput, userId: string, deps: ImportDeps): Promise<ImportOutcome> {

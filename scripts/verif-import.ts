@@ -5,7 +5,8 @@
  * Le mail « Ton article s'est vendu » reste reconstitué (aucun exemple réel pour l'instant).
  */
 import assert from 'node:assert/strict';
-import { parseVintedFinalized, parseAmount, findDate } from '../app/lib/parseVinted';
+import { parseVintedFinalized, parseVintedSold, parseAmount, findDate } from '../app/lib/parseVinted';
+import { matchScore } from '../app/lib/matchSale';
 import { importMail, mailFingerprint, resolveUserId, secretMatches, type PendingRow, type MailInput, type ImportDeps, type SoldNoticeRow, type PurchaseRow, type UnparsedRow } from '../app/lib/importMail';
 import { parseSheinOrder } from '../app/lib/parseShein';
 import { sizeKey, sameSizeStock, type Purchase, type PendingSale } from '../app/lib/stock';
@@ -223,18 +224,19 @@ const MAIL_NO_AMOUNT = ['La transaction est finalisée', 'Article : Pull marin',
   });
 
   // ── Fausse base complète (mêmes règles d'unicité que les fichiers SQL) ──
-  const db = { pending: [] as PendingRow[], notices: [] as (SoldNoticeRow & { id: string; used: boolean })[], purchases: [] as PurchaseRow[] };
+  const db = { pending: [] as (PendingRow & { id: string })[], notices: [] as (SoldNoticeRow & { id: string; used: boolean })[], purchases: [] as PurchaseRow[] };
   const deps: ImportDeps = {
     insertPending: async (row) => {
       if (db.pending.some((r) => r.user_id === row.user_id && ((row.transaction_number && r.transaction_number === row.transaction_number) || r.mail_fingerprint === row.mail_fingerprint))) return 'duplicate';
-      db.pending.push(row);
+      db.pending.push({ ...row, id: `p${db.pending.length + 1}` });
       return 'inserted';
     },
-    findSoldNotice: async (u, key, before) => {
-      const n = db.notices.filter((x) => x.user_id === u && x.article_key === key && !x.used && x.date <= before)
-        .sort((x, y) => y.date.localeCompare(x.date))[0];
-      return n ? { id: n.id, date: n.date } : null;
-    },
+    listSoldNotices: async (u, from, to) =>
+      db.notices.filter((x) => x.user_id === u && !x.used && x.date >= from && x.date <= to)
+        .map((x) => ({ id: x.id, date: x.date, article: x.article, size: x.size, price: x.price })),
+    listApproxPending: async (u, from, to) =>
+      db.pending.filter((x) => x.user_id === u && x.date_approx && x.status === 'en_attente' && x.date >= from && x.date <= to)
+        .map((x) => ({ id: x.id, date: x.date, article: x.article, size: x.size, sale_price: x.sale_price })),
     markNoticeUsed: async (id) => { const n = db.notices.find((x) => x.id === id); if (n) n.used = true; },
     insertSoldNotice: async (row) => {
       if (db.notices.some((x) => x.user_id === row.user_id && x.mail_fingerprint === row.mail_fingerprint)) return { status: 'duplicate' };
@@ -242,9 +244,8 @@ const MAIL_NO_AMOUNT = ['La transaction est finalisée', 'Article : Pull marin',
       db.notices.push({ ...row, id, used: false });
       return { status: 'inserted', id };
     },
-    fixPendingDate: async (u, key, date) => {
-      const p = db.pending.filter((x) => x.user_id === u && x.article_key === key && x.date_approx && x.status === 'en_attente' && x.date >= date)
-        .sort((x, y) => x.date.localeCompare(y.date))[0];
+    setPendingDate: async (id, date) => {
+      const p = db.pending.find((x) => x.id === id && x.date_approx && x.status === 'en_attente');
       if (!p) return false;
       p.date = date;
       p.date_approx = false;
@@ -290,6 +291,102 @@ const MAIL_NO_AMOUNT = ['La transaction est finalisée', 'Article : Pull marin',
     assert.equal(row.date_approx, false);
     assert.equal((await importMail(m2(SOLD_SUBJECT, SOLD_BODY, 'v1', '2026-11-08'), 'u1', deps)).status, 'duplicate');
   });
+  // ══ T-021.2 : correctifs après le premier import réel (18/11/2026) ══
+  // Texte brut Gmail réel : la photo de l'article apparaît en « [image: <alt>] ».
+  const soldReal = (alt: string, line: string) => ['Bonjour vendeuse,', 'acheteuse a acheté', `[image: ${alt}]`, line, 'Envoie-le dès que possible.'].join('\n');
+  const finalReal = (article: string, tx: string, date: string, montant: string) => [
+    'La transaction est finalisée',
+    `| [image: ${article}] |`,
+    `| La vente de ${article} a été réalisée avec succès. |`,
+    `| N° de Transaction : #${tx} |`,
+    `| Date : ${date} 10 h 00 |`,
+    `| Montant de la commande : | ${montant} |`,
+  ].join('\n');
+
+  await test("[image: …] retiré du nom (s'est vendu, finalisée) ; repli sur le texte alternatif", () => {
+    const a = parseVintedSold(SOLD_SUBJECT, soldReal('Robe Talya bleue nuits a mo…', '| Robe Talya bleue nuits à motifs 18,00 € |'), '2026-10-25');
+    assert.ok(a.ok && a.notice.article === 'Robe Talya bleue nuits à motifs' && a.notice.price === 18, JSON.stringify(a));
+    const b = parseVintedSold(SOLD_SUBJECT, ['acheteuse a acheté', '| [image: Robe lilas lumina Taille L] |', '| 25,00 € |'].join('\n'), '2026-10-29');
+    assert.ok(b.ok && b.notice.article === 'Robe lilas lumina Taille L' && b.notice.size === 'L' && b.notice.price === 25, JSON.stringify(b));
+    const c = parseVintedSold(SOLD_SUBJECT, 'acheteuse a acheté [image] Jupe courte [image: x] 9 €', '2026-10-29');
+    assert.ok(c.ok && c.notice.article === 'Jupe courte', JSON.stringify(c));
+    const f = parseVintedFinalized(SUBJECT, finalReal('Robe lumina taille L', '1', '07/11/2026', '25,00 €'), '2026-11-07');
+    assert.ok(f.ok && f.sale.article === 'Robe lumina taille L', JSON.stringify(f));
+  });
+  await test('Shein : texte brut Gmail réel avec « [image: …] » (photo + nom, ou nom seulement dans la photo)', () => {
+    const body = [
+      '[image: SHEIN] Merci pour votre commande !',
+      'Numéro de commande: GSO1AT280000AW1 | Montant total: 57.41€',
+      'Date de paiement : 17 Nov 2026',
+      '[image: SHEIN EZwear Manteau long beige]',
+      'SHEIN EZwear Manteau long élégant et moelleux pour femme SKU: sz2408175405533444 TAILLE: Gris pâle-XL QTÉ: 1 Prix unitaire: 57.41€',
+      '| [image: Robe midi plissée] | SKU: sz2501010000000001 | TAILLE: Noir-M | QTÉ: 1 | Prix unitaire: 12.50€ |',
+      'Total: | 69.91€',
+    ].join('\n');
+    const r = parseSheinOrder(SHEIN_SUBJECT, body, '2026-11-17', '', 'SHEIN <noreply@sheinnotice.com>');
+    assert.ok(r.ok, JSON.stringify(r));
+    if (!r.ok) return;
+    assert.deepEqual(r.order.items.map((i) => [i.model, i.article, i.size, i.unitPrice]), [
+      ['SHEIN EZwear', 'Manteau long élégant et moelleux pour femme', 'XL', 57.41],
+      ['', 'Robe midi plissée', 'M', 12.5],
+    ]);
+    // Format inattendu (pas de SKU) d'un expéditeur Shein → 422 (« Mails à vérifier »), pas ignoré.
+    const bad = parseSheinOrder(SHEIN_SUBJECT, 'Merci pour votre commande', '2026-11-17', '', 'noreply@sheinnotice.com');
+    assert.ok(!bad.ok && bad.reason === 'missing_fields');
+  });
+  await test('score de rapprochement : titres différents acceptés, contradictions refusées', () => {
+    const lumina = { article: 'Robe lumina', size: 'L', price: 25, date: '2026-11-07' };
+    assert.ok(matchScore(lumina, { article: 'Robe lilas lumina Taille L', size: 'L', price: null, date: '2026-10-29' }) !== null);
+    const jena = { article: 'Jena Stradivarius', size: '40', price: 4, date: '2026-10-25' };
+    assert.ok(matchScore(jena, { article: 'Jena Stradivarius taille 40', size: '40', price: null, date: '2026-10-21' }) !== null);
+    assert.equal(matchScore(lumina, { article: 'Robe lilas lumina Taille M', size: 'M', price: null, date: '2026-10-29' }), null, 'taille différente');
+    assert.equal(matchScore(lumina, { article: 'Robe lilas lumina Taille L', size: 'L', price: 30, date: '2026-10-29' }), null, 'prix différent');
+    assert.equal(matchScore(lumina, { article: 'Robe lilas lumina Taille L', size: 'L', price: null, date: '2026-11-08' }), null, 'vendu après finalisé');
+    assert.equal(matchScore(lumina, { article: 'Robe lilas lumina Taille L', size: 'L', price: null, date: '2026-10-07' }), null, 'écart > 30 jours');
+    assert.equal(matchScore({ article: 'Pantalon noir Zara', size: 'M', price: 10, date: '2026-11-07' },
+      { article: 'Pantalon beige Zara', size: 'M', price: 10, date: '2026-11-01' }), null, 'couleur différente');
+    assert.equal(matchScore({ article: 'Robe lumina', size: '', price: null, date: '2026-11-07' },
+      { article: 'Robe lilas lumina', size: '', price: null, date: '2026-11-01' }), null, '1 seul mot commun sans taille ni prix');
+  });
+  await test('import réel : finalisé « Robe lumina » rattaché au vendu « [image: Robe lilas lumina Taille L] »', async () => {
+    const before = db.notices.length;
+    await importMail(m2(SOLD_SUBJECT, ['acheteuse a acheté', '| [image: Robe lilas lumina Taille L] |', '| 25,00 € |'].join('\n'), 'r1', '2026-10-29'), 'u1', deps);
+    assert.equal(db.notices[before].article, 'Robe lilas lumina Taille L');
+    const f = await importMail(m2(SUBJECT, finalReal('Robe lumina taille L', '90000000001', '07/11/2026', '25,00 €'), 'r2', '2026-11-07'), 'u1', deps);
+    assert.ok(f.status === 'inserted' && 'dateApprox' in f && !f.dateApprox, JSON.stringify(f));
+    assert.equal(db.pending.find((p) => p.transaction_number === '90000000001')!.date, '2026-10-29');
+    assert.equal(db.notices[before].used, true);
+  });
+  await test('import réel inverse : finalisé « Jena Stradivarius » (40, 4 €) puis vendu « Jena Stradivarius taille 40 »', async () => {
+    const f = await importMail(m2(SUBJECT, finalReal('Jena Stradivarius taille 40', '90000000002', '25/10/2026', '4,00 €'), 'r3', '2026-10-25'), 'u1', deps);
+    assert.ok('dateApprox' in f && f.dateApprox);
+    const s = await importMail(m2(SOLD_SUBJECT, soldReal('Jena Stradivarius taille 40', '| Jena Stradivarius taille 40 4,00 € |'), 'r4', '2026-10-21'), 'u1', deps);
+    assert.ok('kind' in s && s.kind === 'vinted_sold' && s.fixedPending, JSON.stringify(s));
+    const row = db.pending.find((p) => p.transaction_number === '90000000002')!;
+    assert.deepEqual([row.date, row.date_approx], ['2026-10-21', false]);
+  });
+  await test('candidat ambigu (deux « vendu » possibles) → aucun rattachement, date_approx gardée', async () => {
+    await importMail(m2(SOLD_SUBJECT, soldReal('Pull Mango vert taille S', '| Pull Mango vert taille S 15,00 € |'), 'a1', '2026-09-01'), 'u1', deps);
+    await importMail(m2(SOLD_SUBJECT, soldReal('Pull Mango vert taille S', '| Pull Mango vert taille S 15,00 € |'), 'a2', '2026-09-03'), 'u1', deps);
+    const f = await importMail(m2(SUBJECT, finalReal('Pull Mango vert taille S', '90000000003', '06/09/2026', '15,00 €'), 'a3', '2026-09-06'), 'u1', deps);
+    assert.ok('dateApprox' in f && f.dateApprox, JSON.stringify(f));
+    const row = db.pending.find((p) => p.transaction_number === '90000000003')!;
+    assert.deepEqual([row.date, row.date_approx], ['2026-09-06', true]);
+    assert.ok(db.notices.filter((n) => n.article.startsWith('Pull Mango')).every((n) => !n.used));
+    // Sens inverse : deux ventes approximatives possibles pour un même avis → rien.
+    await importMail(m2(SUBJECT, finalReal('Gilet Kiabi rose taille M', '90000000004', '10/08/2026', '8,00 €'), 'b1', '2026-08-10'), 'u1', deps);
+    await importMail(m2(SUBJECT, finalReal('Gilet Kiabi rose taille M', '90000000005', '12/08/2026', '8,00 €'), 'b2', '2026-08-12'), 'u1', deps);
+    const s = await importMail(m2(SOLD_SUBJECT, soldReal('Gilet Kiabi rose taille M', '| Gilet Kiabi rose taille M 8,00 € |'), 'b3', '2026-08-08'), 'u1', deps);
+    assert.ok('kind' in s && s.kind === 'vinted_sold' && !s.fixedPending);
+    assert.ok(db.pending.filter((p) => p.article.startsWith('Gilet Kiabi')).every((p) => p.date_approx));
+  });
+  await test('mail trouvé par la recherche Shein mais non reconnu → 422 (à vérifier), pas ignoré', async () => {
+    const r = await importMail(m2('Votre commande', 'Bonjour', 'h1', '2026-11-17', { hint: 'shein' }), 'u1', deps);
+    assert.equal(r.status, 'unparsed');
+    const sansHint = await importMail(m2('Votre commande', 'Bonjour', 'h2', '2026-11-17'), 'u1', deps);
+    assert.equal(sansHint.status, 'ignored');
+  });
+
   await test("mail non reconnu (422) noté pour l'app ; une base en panne ne change pas la réponse", async () => {
     const notes: UnparsedRow[] = [];
     const r = await importMail(mail(MAIL_NO_AMOUNT, 'm9'), 'u1', { insertPending: fakeInsert, recordUnparsed: async (row) => { notes.push(row); } });

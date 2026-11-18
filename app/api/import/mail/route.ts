@@ -9,7 +9,7 @@ export const maxDuration = 60;
 
 /**
  * Webhook appelé par l'Apps Script de chaque Gmail (apps-script/Code.gs).
- * POST { account, messageId, subject, body, receivedDate, html?, from? }  + en-tête x-import-secret.
+ * POST { account, messageId, subject, body, receivedDate, html?, from?, hint? }  + en-tête x-import-secret.
  * Vinted finalisée → `pending_sales` ; Vinted « s'est vendu » → `vinted_sold_notices` (vraie date) ;
  * Shein confirmation → `purchases` (une ligne par unité). Anti-doublon par contraintes uniques
  * (supabase/import-mail.sql puis supabase/achats-shein.sql).
@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
     body: str(b?.body).slice(0, 50000),
     html: str(b?.html).slice(0, 400000),
     from: str(b?.from).slice(0, 300),
+    hint: str(b?.hint).slice(0, 20),
     receivedDate: /^\d{4}-\d{2}-\d{2}$/.test(str(b?.receivedDate)) ? str(b.receivedDate) : new Date().toISOString().slice(0, 10),
   };
   if (!mail.account || !mail.body.trim()) {
@@ -55,33 +56,48 @@ export async function POST(req: NextRequest) {
       if (error.code === '23505') return 'duplicate';
       throw new Error(error.message);
     },
-    findSoldNotice: async (userId, articleKey, onOrBefore) => {
-      const { data, error } = await createAdminSupabase().from('vinted_sold_notices')
-        .select('id, date').eq('user_id', userId).eq('article_key', articleKey).eq('used', false)
-        .lte('date', onOrBefore).order('date', { ascending: false }).limit(1);
+    // Rapprochement « s'est vendu » ↔ « finalisée » : la base donne les candidats, matchSale.ts décide (T-021.2).
+    listSoldNotices: async (userId, from, to) => {
+      const db = createAdminSupabase();
+      let r: { data: any[] | null; error: { message: string } | null } = await db.from('vinted_sold_notices')
+        .select('id, date, article, size, price').eq('user_id', userId).eq('used', false)
+        .gte('date', from).lte('date', to).limit(200);
+      // Colonne price absente (rattrapage-2026-11-18.sql pas encore passé) : on relit sans elle.
+      if (r.error && /price/.test(r.error.message)) {
+        r = await db.from('vinted_sold_notices').select('id, date, article, size').eq('user_id', userId).eq('used', false)
+          .gte('date', from).lte('date', to).limit(200);
+      }
+      if (r.error) throw new Error(r.error.message);
+      return (r.data ?? []).map((n) => ({ id: n.id, date: n.date, article: n.article, size: n.size, price: n.price == null ? null : Number(n.price) }));
+    },
+    listApproxPending: async (userId, from, to) => {
+      const { data, error } = await createAdminSupabase().from('pending_sales')
+        .select('id, date, article, size, sale_price').eq('user_id', userId).eq('date_approx', true).eq('status', 'en_attente')
+        .gte('date', from).lte('date', to).limit(200);
       if (error) throw new Error(error.message);
-      return data && data[0] ? { id: data[0].id, date: data[0].date } : null;
+      return (data ?? []).map((p) => ({ id: p.id, date: p.date, article: p.article, size: p.size, sale_price: p.sale_price == null ? null : Number(p.sale_price) }));
     },
     markNoticeUsed: async (id) => {
       const { error } = await createAdminSupabase().from('vinted_sold_notices').update({ used: true }).eq('id', id);
       if (error) throw new Error(error.message);
     },
     insertSoldNotice: async (row) => {
-      const { data, error } = await createAdminSupabase().from('vinted_sold_notices').insert(row).select('id');
+      const db = createAdminSupabase();
+      let { data, error } = await db.from('vinted_sold_notices').insert(row).select('id');
+      // Colonne price absente (rattrapage-2026-11-18.sql pas encore passé) : on insère sans le prix.
+      if (error && /price/.test(error.message)) {
+        const { price: _price, ...sansPrix } = row;
+        ({ data, error } = await db.from('vinted_sold_notices').insert(sansPrix).select('id'));
+      }
       if (!error) return { status: 'inserted', id: data?.[0]?.id };
       if (error.code === '23505') return { status: 'duplicate' };
       throw new Error(error.message);
     },
-    fixPendingDate: async (userId, articleKey, date) => {
-      const db = createAdminSupabase();
-      const { data, error } = await db.from('pending_sales').select('id')
-        .eq('user_id', userId).eq('article_key', articleKey).eq('date_approx', true).eq('status', 'en_attente')
-        .gte('date', date).order('date', { ascending: true }).limit(1);
+    setPendingDate: async (pendingId, date) => {
+      const { data, error } = await createAdminSupabase().from('pending_sales').update({ date, date_approx: false })
+        .eq('id', pendingId).eq('date_approx', true).eq('status', 'en_attente').select('id');
       if (error) throw new Error(error.message);
-      if (!data || !data[0]) return false;
-      const up = await db.from('pending_sales').update({ date, date_approx: false }).eq('id', data[0].id);
-      if (up.error) throw new Error(up.error.message);
-      return true;
+      return !!data && data.length > 0;
     },
     insertPurchase: async (row) => {
       const { error } = await createAdminSupabase().from('purchases').insert(row);

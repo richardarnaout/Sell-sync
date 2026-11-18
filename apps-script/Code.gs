@@ -24,7 +24,8 @@ var SEARCHES = [
   // « s'est vendu » d'abord : la vente finalisée trouve ainsi sa vraie date dès le même passage.
   { kind: 'vendu', query: 'from:vinted ("s\'est vendu" OR subject:vendu)' + WINDOW },
   { kind: 'finalise', query: 'from:vinted subject:transaction subject:(finalisée OR finalisee)' + WINDOW },
-  { kind: 'shein', query: 'from:(sheinnotice.com OR shein.com) subject:("Confirmation de votre commande")' + WINDOW },
+  // Sujet volontairement large (« Confirmation de votre / ta commande … ») : le tri fin est fait par correspond().
+  { kind: 'shein', query: 'from:(sheinnotice.com OR shein.com) subject:confirmation subject:commande' + WINDOW },
 ];
 var MAX_THREADS = 30; // par recherche et par passage
 
@@ -42,7 +43,8 @@ function correspond(kind, subject, body) {
   var t = subject + '\n' + body;
   if (kind === 'finalise') return /finalis/i.test(t);
   if (kind === 'vendu') return /s['’]est vendu|a été vendu/i.test(t) && !/finalis/i.test(t);
-  if (kind === 'shein') return /confirmation de (votre|ta) commande/i.test(t) && /SKU\s*:/i.test(body);
+  // Sans exiger « SKU: » : un format inattendu arrive au serveur, qui le note dans « Mails à vérifier ».
+  if (kind === 'shein') return /confirmation de (votre|ta) commande/i.test(t);
   return false;
 }
 
@@ -54,20 +56,28 @@ function importerVentes() {
   var bilan = { fils: 0, envoyes: 0, erreurs: 0 };
 
   SEARCHES.forEach(function (s) {
-    if (s.kind === 'shein' && !IMPORTER_SHEIN) return;
+    if (s.kind === 'shein' && !IMPORTER_SHEIN) {
+      console.log('SellSync : recherche Shein désactivée (IMPORTER_SHEIN = false).');
+      return;
+    }
     var threads = GmailApp.search(s.query, 0, MAX_THREADS);
+    console.log('SellSync : recherche « ' + s.kind + ' » → ' + threads.length + ' fil(s).');
     bilan.fils += threads.length;
     threads.forEach(function (thread) {
       var okThread = true;
       thread.getMessages().forEach(function (msg) {
         var subject = msg.getSubject() || '';
         var body = msg.getPlainBody() || '';
-        if (!correspond(s.kind, subject, body)) return;
+        if (!correspond(s.kind, subject, body)) {
+          if (s.kind === 'shein') console.log('SellSync : mail Shein écarté (sujet différent) : « ' + subject + ' »');
+          return;
+        }
         var payload = {
           account: account,
           messageId: msg.getId(),
           subject: subject,
           from: msg.getFrom() || '',
+          hint: s.kind, // le serveur note en « à vérifier » un mail Shein qu'il ne reconnaît pas
           body: body.slice(0, 50000),
           receivedDate: Utilities.formatDate(msg.getDate(), tz, 'yyyy-MM-dd'),
         };

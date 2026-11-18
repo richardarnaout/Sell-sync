@@ -35,10 +35,24 @@ export function fold(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[  ]/g, ' ').toLowerCase();
 }
 
-/** Texte nettoyé : espaces insécables → espaces, lignes rognées, lignes vides retirées. */
+/**
+ * Retire les marqueurs d'images du texte brut Gmail (getPlainBody) : « [image: <alt>] », « [image] »,
+ * y compris un « [image: … » tronqué sans crochet fermant (jusqu'à la fin de la ligne). T-021.2.
+ */
+export function stripImageMarkers(s: string): string {
+  return s.replace(/\[image(?::[^\]\n]*)?\]?/gi, ' ');
+}
+
+/** Textes alternatifs des images (« [image: Robe lilas] » → « Robe lilas »), points de suspension retirés. */
+export function imageAlts(s: string): string[] {
+  return Array.from(s.matchAll(/\[image:\s*([^\]\n]+)\]?/gi))
+    .map((m) => m[1].replace(/\s*(?:…|\.{3})\s*$/, '').trim())
+    .filter(Boolean);
+}
+
+/** Texte nettoyé : marqueurs d'images retirés, espaces insécables → espaces, lignes rognées, lignes vides retirées. */
 export function cleanLines(body: string): string[] {
-  return body
-    .replace(/\r/g, '')
+  return stripImageMarkers(body.replace(/\r/g, ''))
     .replace(/[  ]/g, ' ')
     // Tableaux et titres issus du HTML (« | Montant : | 29,00 € | », « #### ») : une cellule par ligne.
     .replace(/\|/g, '\n')
@@ -136,6 +150,7 @@ export function parseVintedFinalized(subject: string, body: string, receivedDate
 export interface VintedSoldNotice {
   article: string;
   size: string;
+  price: number | null; // prix écrit dans le mail (« <article> 24,00 € »), null si absent
   date: string; // YYYY-MM-DD = date du mail (réception Gmail)
 }
 
@@ -175,10 +190,19 @@ export function parseVintedSold(subject: string, body: string, receivedDate: str
     article = q ? q[1].trim() : '';
   }
   // Format réel (mail du 10/11/2026) : « <article> 24,00 € » sur la même cellule → on retire le prix final.
-  article = article.replace(/\s*[.!]+$/, '').replace(/\s+\d+(?:[.,]\d{1,2})?\s*€\s*$/, '').trim();
+  article = article.replace(/\s*[.!]+$/, '');
+  const priceMatch = article.match(/(?:^|\s)(\d+(?:[.,]\d{1,2})?)\s*€\s*$/);
+  const price = priceMatch ? parseAmount(priceMatch[1]) : NaN;
+  article = article.replace(/(?:^|\s+)\d+(?:[.,]\d{1,2})?\s*€\s*$/, '').trim();
+  // Article seulement dans le texte alternatif de la photo (« [image: Robe lilas lumina Taille L] ») : on le reprend.
+  if (!article) {
+    const after = body.search(/a achet|vient d['’]achet/i);
+    article = imageAlts(after >= 0 ? body.slice(after) : body)[0] ?? '';
+  }
   const size = labelValue(lines, ['taille']).split(/[·|,]/)[0].trim()
     || (article.match(/\btaille\s+(\S+)/i)?.[1] ?? '');
 
   if (!article) return { ok: false, reason: 'missing_fields', missing: ['article'] };
-  return { ok: true, notice: { article, size, date: receivedDate } };
+  const notice = { article, size, price: Number.isFinite(price) && price > 0 ? price : null, date: receivedDate };
+  return { ok: true, notice };
 }
