@@ -25,6 +25,7 @@ export interface PendingSale {
   salePrice: number;
   transactionNumber: string;
   status: 'en_attente' | 'traite' | 'ignore';
+  rejectedPurchaseIds?: string[]; // achats écartés par la croix ✕ (T-027)
   dateApprox?: boolean; // true = pas de mail « s'est vendu » rapproché : date du « finalisée »
 }
 
@@ -60,6 +61,7 @@ export function dbToPending(r: any): PendingSale {
     id: r.id, date: r.date, article: r.article, color: r.color || '', size: r.size || '',
     salePrice: Number(r.sale_price) || 0, transactionNumber: r.transaction_number || '',
     status: r.status || 'en_attente', dateApprox: !!r.date_approx,
+    rejectedPurchaseIds: Array.isArray(r.rejected_purchase_ids) ? r.rejected_purchase_ids : [],
   };
 }
 
