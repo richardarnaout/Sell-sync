@@ -14,12 +14,12 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
         <div className="card rounded-2xl p-4 sm:p-5">
           <p className="text-sm font-bold text-white mb-1">Revenus mensuels</p>
-          <p className="text-[11px] text-white/30 mb-5">Chiffre d'affaires vs bénéfice</p>
+          <p className="text-xs text-white/55 mb-5">Chiffre d'affaires vs bénéfice</p>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={chartMonthly} barCategoryGap="30%" barGap={4}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="name" tick={{ fill:'rgba(255,255,255,0.3)', fontSize:11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill:'rgba(255,255,255,0.3)', fontSize:11 }} axisLine={false} tickLine={false} width={45} tickFormatter={v => v + '€'} />
+              <XAxis dataKey="name" tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false} width={45} tickFormatter={v => v + '€'} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill:'rgba(255,255,255,0.03)' }} />
               <Bar dataKey="CA" fill="#6366f1" radius={[6,6,0,0]} opacity={0.7} />
               <Bar dataKey="Bénéfice" fill="#a78bfa" radius={[6,6,0,0]} />
@@ -30,7 +30,7 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
         {chartMonthly.length > 1 ? (
           <div className="card rounded-2xl p-4 sm:p-5">
             <p className="text-sm font-bold text-white mb-1">Tendance bénéfice</p>
-            <p className="text-[11px] text-white/30 mb-5">Évolution mois par mois</p>
+            <p className="text-xs text-white/55 mb-5">Évolution mois par mois</p>
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={chartMonthly}>
                 <defs>
@@ -40,8 +40,8 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill:'rgba(255,255,255,0.3)', fontSize:11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill:'rgba(255,255,255,0.3)', fontSize:11 }} axisLine={false} tickLine={false} width={45} tickFormatter={v => v + '€'} />
+                <XAxis dataKey="name" tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false} width={45} tickFormatter={v => v + '€'} />
                 <Tooltip content={<ChartTooltip />} />
                 <Area type="monotone" dataKey="Bénéfice" stroke="#6366f1" strokeWidth={2.5} fill="url(#profitGrad)" dot={{ fill:'#6366f1', strokeWidth:0, r:4 }} activeDot={{ r:6, fill:'#a78bfa' }} />
               </AreaChart>
@@ -49,7 +49,7 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
           </div>
         ) : (
           <div className="card rounded-2xl p-5 flex items-center justify-center">
-            <p className="text-white/20 text-sm">Ajoute des ventes sur plusieurs mois pour voir la tendance</p>
+            <p className="text-white/55 text-sm">Ajoute des ventes sur plusieurs mois pour voir la tendance</p>
           </div>
         )}
       </div>
@@ -58,7 +58,7 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
         <div className="card rounded-2xl p-4 sm:p-5">
           <p className="text-sm font-bold text-white mb-1">Coûts vs Revenus</p>
-          <p className="text-[11px] text-white/30 mb-5">Achats + port + booster</p>
+          <p className="text-xs text-white/55 mb-5">Achats + port + booster</p>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={chartMonthly}>
               <defs>
@@ -72,8 +72,8 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="name" tick={{ fill:'rgba(255,255,255,0.3)', fontSize:11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill:'rgba(255,255,255,0.3)', fontSize:11 }} axisLine={false} tickLine={false} width={45} tickFormatter={v => v + '€'} />
+              <XAxis dataKey="name" tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false} width={45} tickFormatter={v => v + '€'} />
               <Tooltip content={<ChartTooltip />} />
               <Area type="monotone" dataKey="CA" stroke="#06b6d4" strokeWidth={2} fill="url(#caGrad)" dot={false} />
               <Area type="monotone" dataKey="Coûts" stroke="#f87171" strokeWidth={2} fill="url(#costGrad)" dot={false} />
@@ -84,7 +84,7 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
         {byCat.length > 0 && (
           <div className="card rounded-2xl p-4 sm:p-5">
             <p className="text-sm font-bold text-white mb-1">Par catégorie</p>
-            <p className="text-[11px] text-white/30 mb-4">Répartition du chiffre d'affaires</p>
+            <p className="text-xs text-white/55 mb-4">Répartition du chiffre d'affaires</p>
             <div className="flex flex-col sm:flex-row gap-6 items-center">
               <div className="w-full sm:w-[45%] shrink-0">
                 <ResponsiveContainer width="100%" height={180}>
@@ -104,7 +104,7 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ background: CAT_COLORS[c.name] ?? '#6366f1' }} />
                       <span className="text-white/55 font-medium">{c.name}</span>
-                      <span className="text-white/20">{c.count}</span>
+                      <span className="text-white/55">{c.count}</span>
                     </div>
                     <span className="font-semibold" style={{ color: c.profit >= 0 ? '#a78bfa' : '#f87171' }}>{fmt(c.profit)}</span>
                   </div>
@@ -119,15 +119,15 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
       {monthComparison.months.length >= 2 && (
         <div className="card rounded-2xl p-4 sm:p-5">
           <p className="text-sm font-bold text-white mb-1">Comparaison mensuelle</p>
-          <p className="text-[11px] text-white/30 mb-5">Bénéfice cumulé jour par jour — chaque courbe = un mois</p>
+          <p className="text-xs text-white/55 mb-5">Bénéfice cumulé jour par jour — chaque courbe = un mois</p>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={monthComparison.data}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="day" tick={{ fill:'rgba(255,255,255,0.3)', fontSize:10 }} axisLine={false} tickLine={false}
+              <XAxis dataKey="day" tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false}
                 tickFormatter={v => `J${v}`} interval={4} />
-              <YAxis tick={{ fill:'rgba(255,255,255,0.3)', fontSize:10 }} axisLine={false} tickLine={false} width={45} tickFormatter={v => v + '€'} />
+              <YAxis tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false} width={45} tickFormatter={v => v + '€'} />
               <Tooltip content={<ChartTooltip />} />
-              <Legend wrapperStyle={{ fontSize:11, color:'rgba(255,255,255,0.4)', paddingTop:12 }} />
+              <Legend wrapperStyle={{ fontSize:12, color:'rgba(255,255,255,0.6)', paddingTop:12 }} />
               {monthComparison.months.map((m, i) => (
                 <Line key={m} type="monotone" dataKey={m} stroke={MONTH_COLORS[i % MONTH_COLORS.length]}
                   strokeWidth={2} dot={false} activeDot={{ r:4 }} />
@@ -142,12 +142,12 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
         {topArticles.length > 0 && (
           <div className="card rounded-2xl p-4 sm:p-5">
             <p className="text-sm font-bold text-white mb-1">Articles les plus vendus</p>
-            <p className="text-[11px] text-white/30 mb-4">Top {topArticles.length} par nombre de ventes</p>
+            <p className="text-xs text-white/55 mb-4">Top {topArticles.length} par nombre de ventes</p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={topArticles} layout="vertical" barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                <XAxis type="number" tick={{ fill:'rgba(255,255,255,0.3)', fontSize:10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <YAxis type="category" dataKey="name" tick={{ fill:'rgba(255,255,255,0.45)', fontSize:10 }} axisLine={false} tickLine={false} width={100} />
+                <XAxis type="number" tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <YAxis type="category" dataKey="name" tick={{ fill:'rgba(255,255,255,0.45)', fontSize:12 }} axisLine={false} tickLine={false} width={100} />
                 <Tooltip content={<ChartTooltip />} cursor={{ fill:'rgba(255,255,255,0.03)' }} />
                 <Bar dataKey="count" name="Ventes" fill="#6366f1" radius={[0,6,6,0]} />
               </BarChart>
@@ -157,12 +157,12 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
         {topSizes.length > 0 && (
           <div className="card rounded-2xl p-4 sm:p-5">
             <p className="text-sm font-bold text-white mb-1">Tailles les plus vendues</p>
-            <p className="text-[11px] text-white/30 mb-4">Répartition par taille</p>
+            <p className="text-xs text-white/55 mb-4">Répartition par taille</p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={topSizes} barCategoryGap="25%">
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="size" tick={{ fill:'rgba(255,255,255,0.3)', fontSize:11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill:'rgba(255,255,255,0.3)', fontSize:11 }} axisLine={false} tickLine={false} width={25} allowDecimals={false} />
+                <XAxis dataKey="size" tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false} width={25} allowDecimals={false} />
                 <Tooltip content={<ChartTooltip />} cursor={{ fill:'rgba(255,255,255,0.03)' }} />
                 <Bar dataKey="count" name="Ventes" radius={[6,6,0,0]}>
                   {topSizes.map((_, i) => (
@@ -180,17 +180,17 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
         {bestPerMonth.length > 0 && (
           <div className="card rounded-2xl p-4 sm:p-5">
             <p className="text-sm font-bold text-white mb-1">Article phare par mois</p>
-            <p className="text-[11px] text-white/30 mb-4">L'article le plus vendu chaque mois</p>
+            <p className="text-xs text-white/55 mb-4">L'article le plus vendu chaque mois</p>
             <div className="space-y-2">
               {bestPerMonth.slice(0, 8).map(row => (
                 <div key={row.month} className="flex items-center justify-between px-3 py-2.5 rounded-xl"
                   style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-[10px] font-bold text-white/30 w-10 shrink-0">{row.month}</span>
+                    <span className="text-xs font-bold text-white/55 w-10 shrink-0">{row.month}</span>
                     <span className="text-xs font-semibold text-white/80 truncate">{row.article}</span>
                   </div>
                   <div className="flex items-center gap-3 shrink-0 ml-2">
-                    <span className="text-[10px] text-white/30">{row.count}×</span>
+                    <span className="text-xs text-white/55">{row.count}×</span>
                     <span className="text-xs font-bold" style={{ color: row.profit >= 0 ? '#a5b4fc' : '#f87171' }}>
                       {(row.profit >= 0 ? '+' : '') + row.profit.toFixed(2).replace('.', ',') + ' €'}
                     </span>
@@ -203,12 +203,12 @@ export default function AnalyseCharts({ st, salesCount }: { st: SalesStats; sale
         {salesCount >= 5 && (
           <div className="card rounded-2xl p-4 sm:p-5">
             <p className="text-sm font-bold text-white mb-1">Meilleur jour de la semaine</p>
-            <p className="text-[11px] text-white/30 mb-4">Quand tu vends le plus</p>
+            <p className="text-xs text-white/55 mb-4">Quand tu vends le plus</p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={byDayOfWeek} barCategoryGap="25%">
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="day" tick={{ fill:'rgba(255,255,255,0.3)', fontSize:11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill:'rgba(255,255,255,0.3)', fontSize:11 }} axisLine={false} tickLine={false} width={25} allowDecimals={false} />
+                <XAxis dataKey="day" tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill:'rgba(255,255,255,0.6)', fontSize:12 }} axisLine={false} tickLine={false} width={25} allowDecimals={false} />
                 <Tooltip content={<ChartTooltip />} cursor={{ fill:'rgba(255,255,255,0.03)' }} />
                 <Bar dataKey="ventes" name="Ventes" radius={[6,6,0,0]}>
                   {byDayOfWeek.map((entry, i) => {

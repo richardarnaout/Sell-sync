@@ -10,15 +10,15 @@ export default function DeleteConfirm({ deleteId, setDeleteId, sales, setSales }
   sales: Sale[]; setSales: Dispatch<SetStateAction<Sale[]>>;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:px-4 animate-fade-in">
       <div className="absolute inset-0" style={{ background:'rgba(0,0,0,0.8)', backdropFilter:'blur(4px)' }} onClick={() => setDeleteId(null)} />
-      <div className="animate-scale-in relative rounded-2xl p-6 w-full max-w-sm"
-        style={{ background:'#0f1120', border:'1px solid rgba(255,255,255,0.1)' }}>
+      <div className="animate-slide-up sm:animate-scale-in relative rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 w-full sm:max-w-sm"
+        style={{ paddingBottom:'max(1.5rem, env(safe-area-inset-bottom))', background:'#0f1120', border:'1px solid rgba(255,255,255,0.1)' }}>
         <h3 className="font-bold text-white text-base mb-2">Supprimer cette vente ?</h3>
-        <p className="text-sm text-white/35 mb-6">Cette action est irréversible.</p>
+        <p className="text-sm text-white/55 mb-6">Cette action est irréversible.</p>
         <div className="flex gap-3">
           <button onClick={() => setDeleteId(null)}
-            className="flex-1 py-3 rounded-xl font-semibold text-sm text-white/40 hover:text-white transition"
+            className="flex-1 py-3 rounded-xl font-semibold text-sm text-white/60 hover:text-white transition"
             style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
             Annuler
           </button>

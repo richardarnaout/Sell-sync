@@ -29,13 +29,13 @@ export default function Analyse({ sales, st, goalMonth, setGoalMonth, onEmptyAdd
             <div className="rounded-2xl px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
               style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08))', border:'1px solid rgba(99,102,241,0.2)' }}>
               <div>
-                <p className="text-xs text-white/40 font-semibold uppercase tracking-wide mb-1">Meilleur mois</p>
+                <p className="text-xs text-white/60 font-semibold uppercase tracking-wide mb-1">Meilleur mois</p>
                 <p className="text-white font-bold text-lg">{bestMonth[1].label}</p>
-                <p className="text-xs text-white/40 mt-0.5">{bestMonth[1].sales.length} vente{bestMonth[1].sales.length > 1 ? 's' : ''}</p>
+                <p className="text-xs text-white/60 mt-0.5">{bestMonth[1].sales.length} vente{bestMonth[1].sales.length > 1 ? 's' : ''}</p>
               </div>
               <div className="sm:text-right">
                 <p className="text-2xl sm:text-3xl font-bold text-indigo-400">+{bestMonth[1].profit.toFixed(2).replace('.',',')} €</p>
-                <p className="text-xs text-white/30 mt-1">CA {fmtPlain(bestMonth[1].revenue)}</p>
+                <p className="text-xs text-white/55 mt-1">CA {fmtPlain(bestMonth[1].revenue)}</p>
               </div>
             </div>
           )}
@@ -49,7 +49,7 @@ export default function Analyse({ sales, st, goalMonth, setGoalMonth, onEmptyAdd
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="w-4 h-4 text-indigo-400" />
                 <p className="text-sm font-bold text-white">Suggestions</p>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
                   style={{ background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.2)' }}>
                   basées sur tes données
                 </span>
@@ -69,7 +69,7 @@ export default function Analyse({ sales, st, goalMonth, setGoalMonth, onEmptyAdd
                         <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background:c.dot }} />
                         <p className="text-xs font-bold leading-tight" style={{ color:c.label }}>{s.title}</p>
                       </div>
-                      <p className="text-[11px] text-white/50 leading-relaxed">{s.body}</p>
+                      <p className="text-xs text-white/50 leading-relaxed">{s.body}</p>
                     </div>
                   );
                 })}
@@ -78,7 +78,7 @@ export default function Analyse({ sales, st, goalMonth, setGoalMonth, onEmptyAdd
           )}
 
           {/* Outils IA */}
-          <AiTools sales={sales} />
+          <AiTools month={selectedMonth ?? st.byMonthDesc[0]?.[0] ?? null} hasSales={sales.length > 0} />
 
           <AnalyseCharts st={st} salesCount={sales.length} />
 

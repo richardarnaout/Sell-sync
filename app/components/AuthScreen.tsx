@@ -48,7 +48,7 @@ export default function AuthScreen() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Sell<span style={{ background:'linear-gradient(90deg,#6366f1,#a78bfa)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>Sync</span>
           </h1>
-          <p className="text-xs text-white/30 mt-1 font-medium tracking-widest">VINTED ACCOUNTING</p>
+          <p className="text-xs text-white/55 mt-1 font-medium tracking-widest">VINTED ACCOUNTING</p>
         </div>
 
         {/* Card */}
@@ -57,7 +57,7 @@ export default function AuthScreen() {
             <div className="text-center py-4">
               <CheckCircle className="w-10 h-10 text-green-400 mx-auto mb-3" />
               <p className="text-white font-semibold mb-1">Compte créé !</p>
-              <p className="text-white/40 text-sm">Vérifie ta boîte mail pour confirmer, puis connecte-toi.</p>
+              <p className="text-white/60 text-sm">Vérifie ta boîte mail pour confirmer, puis connecte-toi.</p>
               <button onClick={() => { setMode('login'); setSignupDone(false); }}
                 className="mt-4 text-xs text-indigo-400 hover:text-indigo-300 transition">
                 Aller à la connexion
@@ -71,7 +71,7 @@ export default function AuthScreen() {
                     className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
                     style={mode === m
                       ? { background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#fff' }
-                      : { color:'rgba(255,255,255,0.35)' }}>
+                      : { color:'rgba(255,255,255,0.6)' }}>
                     {m === 'login' ? 'Connexion' : 'Créer un compte'}
                   </button>
                 ))}

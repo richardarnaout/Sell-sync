@@ -27,18 +27,18 @@ export default function SettingsModal({ s, onImportCSV, onExportCSV, canExport }
     settingsError, setSettingsError, settingsSuccess, setSettingsSuccess, settingsLoading, setSettingsLoading,
   } = s;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:px-4 animate-fade-in">
       <div className="absolute inset-0" style={{ background:'rgba(0,0,0,0.8)', backdropFilter:'blur(4px)' }} onClick={() => setShowSettings(false)} />
-      <div className="animate-scale-in relative rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto"
-        style={{ background:'#0f1120', border:'1px solid rgba(255,255,255,0.1)' }}>
+      <div className="animate-slide-up sm:animate-scale-in relative rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 w-full sm:max-w-sm max-h-[92dvh] overflow-y-auto overflow-x-hidden"
+        style={{ paddingBottom:'max(1.5rem, env(safe-area-inset-bottom))', background:'#0f1120', border:'1px solid rgba(255,255,255,0.1)' }}>
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-bold text-white text-base">Réglages</h3>
-          <button onClick={() => setShowSettings(false)} className="p-1.5 rounded-xl text-white/30 hover:text-white/70 hover:bg-white/5 transition">
+          <button onClick={() => setShowSettings(false)} className="w-11 h-11 -mr-2 flex items-center justify-center rounded-xl text-white/55 hover:text-white/70 hover:bg-white/5 transition">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color:'rgba(255,255,255,0.3)' }}>Données</p>
+        <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color:'rgba(255,255,255,0.6)' }}>Données</p>
         <div className="flex gap-2 mb-6">
           <button onClick={onImportCSV}
             className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl text-xs font-semibold text-white/70 hover:text-white"
@@ -54,7 +54,7 @@ export default function SettingsModal({ s, onImportCSV, onExportCSV, canExport }
           )}
         </div>
 
-        <p className="text-[11px] font-bold uppercase tracking-widest mb-4" style={{ color:'rgba(255,255,255,0.3)' }}>Changer le mot de passe</p>
+        <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color:'rgba(255,255,255,0.6)' }}>Changer le mot de passe</p>
 
         <div className="space-y-3">
           <input

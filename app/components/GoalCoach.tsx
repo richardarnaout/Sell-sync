@@ -40,12 +40,12 @@ function GoalBar({ label, current, target, expected, render, suffix, past }: {
     <div className="rounded-xl p-3.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
       <div className="flex items-end justify-between mb-2">
         <div>
-          <p className="text-[11px] text-white/40 font-semibold uppercase tracking-wide mb-0.5">{label}</p>
+          <p className="text-xs text-white/60 font-semibold uppercase tracking-wide mb-0.5">{label}</p>
           <p className="text-white font-bold text-lg leading-none">
-            {render(current)}<span className="text-white/30 text-sm font-medium"> / {render(target)}{sfx}</span>
+            {render(current)}<span className="text-white/55 text-sm font-medium"> / {render(target)}{sfx}</span>
           </p>
         </div>
-        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
+        <span className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
           style={{ color: status.color, background: `${accent}1a`, border: `1px solid ${accent}40` }}>
           {status.text}
         </span>
@@ -56,7 +56,7 @@ function GoalBar({ label, current, target, expected, render, suffix, past }: {
           <div className="absolute top-[-2px] bottom-[-2px] w-0.5 rounded-full" style={{ left: `${expPct}%`, background: 'rgba(255,255,255,0.55)' }} />
         )}
       </div>
-      <p className="text-[10px] text-white/35 mt-1.5">{footer}</p>
+      <p className="text-xs text-white/55 mt-1.5">{footer}</p>
     </div>
   );
 }
@@ -88,7 +88,7 @@ export default function GoalCoach({ goal, goalMonth, setGoalMonth }: {
       <div className="flex items-center gap-2 mb-1 flex-wrap">
         <Target className="w-4 h-4 text-emerald-400" />
         <p className="text-sm font-bold text-white">Objectif de vente</p>
-        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+        <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
           style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7', border: '1px solid rgba(16,185,129,0.2)' }}>
           quota = ta moyenne
         </span>
@@ -97,9 +97,9 @@ export default function GoalCoach({ goal, goalMonth, setGoalMonth }: {
         Ton quota minimum de régularité = ta moyenne sur tes {goal.monthsCount} mois&nbsp;:
         <span className="text-white font-semibold"> {goal.targetCount} vente{goal.targetCount > 1 ? 's' : ''}</span> et
         <span className="text-white font-semibold"> {fmtPlain(goal.targetRev)}</span> par mois
-        <span className="text-white/35"> (≈ {goal.weekCountTarget} vente{goal.weekCountTarget > 1 ? 's' : ''} et {fmtPlain(goal.weekRevTarget)} / semaine)</span>.
+        <span className="text-white/55"> (≈ {goal.weekCountTarget} vente{goal.weekCountTarget > 1 ? 's' : ''} et {fmtPlain(goal.weekRevTarget)} / semaine)</span>.
       </p>
-      <p className="text-[10px] text-white/35 mb-4">« Montant vendu » = la somme de tes prix de vente sur la période (ton chiffre d'affaires).</p>
+      <p className="text-xs text-white/55 mb-4">« Montant vendu » = la somme de tes prix de vente sur la période (ton chiffre d'affaires).</p>
 
       {/* Sélecteur de mois */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-3">
@@ -121,8 +121,8 @@ export default function GoalCoach({ goal, goalMonth, setGoalMonth }: {
 
       {/* Résultat du mois sélectionné */}
       <div className="flex items-center gap-1.5 mb-2.5">
-        <CalendarDays className="w-3.5 h-3.5 text-white/40" />
-        <p className="text-[11px] font-bold text-white/70 uppercase tracking-wide">{sel.label}{isCur ? ' · en cours' : ''}</p>
+        <CalendarDays className="w-3.5 h-3.5 text-white/60" />
+        <p className="text-xs font-bold text-white/70 uppercase tracking-wide">{sel.label}{isCur ? ' · en cours' : ''}</p>
       </div>
       <p className="text-xs text-white/55 leading-relaxed mb-3">{headline}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -134,14 +134,14 @@ export default function GoalCoach({ goal, goalMonth, setGoalMonth }: {
       {isCur && (
         <>
           <div className="flex items-center gap-1.5 mb-2.5 mt-4">
-            <CalendarDays className="w-3.5 h-3.5 text-white/40" />
-            <p className="text-[11px] font-bold text-white/70 uppercase tracking-wide">Cette semaine</p>
+            <CalendarDays className="w-3.5 h-3.5 text-white/60" />
+            <p className="text-xs font-bold text-white/70 uppercase tracking-wide">Cette semaine</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <GoalBar label="Ventes" current={goal.weekCount} target={goal.weekCountTarget} expected={goal.expWeekCount} render={fmtInt} />
             <GoalBar label="Montant vendu" current={goal.weekRev} target={goal.weekRevTarget} expected={goal.expWeekRev} render={fmtEur} suffix=" €" />
           </div>
-          <p className="text-[10px] text-white/30 mt-3">
+          <p className="text-xs text-white/55 mt-3">
             Le trait clair sur chaque barre = là où tu devrais être aujourd'hui pour tenir ton rythme régulier.
           </p>
         </>

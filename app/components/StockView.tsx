@@ -4,6 +4,7 @@ import { Package, Trash2, EyeOff, Boxes, Plus, Pencil, ExternalLink, Check, X } 
 import { supabase } from '../lib/supabaseClient';
 import { Purchase, purchaseToDb, sheinLink, ageDays, isStale, STALE_DAYS } from '../lib/stock';
 import { Pill } from './ui';
+import { ListingButton } from './AiTools';
 
 export type StockFilter = 'stock'|'vendu'|'vieux';
 
@@ -121,9 +122,9 @@ export default function StockView({ userId, purchases, onChange, filter, setFilt
         {addForm}
         {chips}
         <div className="py-16 text-center">
-          <Boxes className="w-10 h-10 mx-auto text-white/15 mb-3" />
-          <p className="text-white/40 text-sm">{filter === 'stock' ? 'Aucun article en stock.' : filter === 'vendu' ? 'Aucun article vendu.' : `Aucun article en stock depuis plus de ${STALE_DAYS} jours.`}</p>
-          {filter === 'stock' && <p className="text-white/25 text-xs mt-1">Les commandes Shein détectées apparaîtront ici en attendant d'être vendues.</p>}
+          <Boxes className="w-10 h-10 mx-auto text-white/55 mb-3" />
+          <p className="text-white/60 text-sm">{filter === 'stock' ? 'Aucun article en stock.' : filter === 'vendu' ? 'Aucun article vendu.' : `Aucun article en stock depuis plus de ${STALE_DAYS} jours.`}</p>
+          {filter === 'stock' && <p className="text-white/55 text-xs mt-1">Les commandes Shein détectées apparaîtront ici en attendant d'être vendues.</p>}
         </div>
       </div>
     );
@@ -133,11 +134,11 @@ export default function StockView({ userId, purchases, onChange, filter, setFilt
     <div>
       <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6 max-w-md min-w-0">
         <div className="p-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-          <p className="text-[11px] uppercase tracking-wide text-white/35 font-semibold">En stock</p>
+          <p className="text-xs uppercase tracking-wide text-white/55 font-semibold">En stock</p>
           <p className="text-2xl font-bold text-white mt-1">{inStock.length}</p>
         </div>
         <div className="p-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-          <p className="text-[11px] uppercase tracking-wide text-white/35 font-semibold">Argent immobilisé</p>
+          <p className="text-xs uppercase tracking-wide text-white/55 font-semibold">Argent immobilisé</p>
           <p className="text-2xl font-bold text-white mt-1">{money(total)}</p>
         </div>
       </div>
@@ -162,23 +163,23 @@ export default function StockView({ userId, purchases, onChange, filter, setFilt
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 {p.model && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0"
+                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-md shrink-0"
                     style={{ background: 'rgba(139,92,246,0.18)', color: '#c4b5fd' }}>{p.model}</span>
                 )}
                 <p className="text-sm font-semibold text-white truncate">{p.article}</p>
                 {(() => { const l = sheinLink(p); return l && (
                   <a href={l.url} target="_blank" rel="noopener noreferrer"
                     title={l.kind === 'order' ? 'Voir la commande Shein (lien produit non renseigné)' : 'Voir sur Shein'}
-                    className="flex items-center gap-1 text-[11px] text-indigo-300/80 hover:text-indigo-200 shrink-0">
+                    className="flex items-center gap-1 text-xs text-indigo-300/80 hover:text-indigo-200 shrink-0">
                     <ExternalLink className="w-3.5 h-3.5" />{l.kind === 'order' ? 'Commande' : 'Voir sur Shein'}
                   </a>
                 ); })()}
               </div>
-              <p className="text-xs text-white/40 mt-0.5">
+              <p className="text-xs text-white/60 mt-0.5">
                 {p.size && <>taille {p.size} · </>}{p.color && <>{p.color} · </>}acheté le {p.date}
-                {p.status === 'en_stock' && (() => { const d = ageDays(p.date, now); const c = d > STALE_DAYS ? '#fca5a5' : d > 30 ? '#fcd34d' : '#6ee7b7'; return <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold" style={{ background: c + '22', color: c }}>{d} j</span>; })()}
+                {p.status === 'en_stock' && (() => { const d = ageDays(p.date, now); const c = d > STALE_DAYS ? '#fca5a5' : d > 30 ? '#fcd34d' : '#6ee7b7'; return <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-bold" style={{ background: c + '22', color: c }}>{d} j</span>; })()}
               </p>
-              {p.sku && <p className="text-[10px] text-white/25 mt-0.5 font-mono">SKU {p.sku}{p.orderNumber && <> · commande {p.orderNumber}</>}</p>}
+              {p.sku && <p className="text-xs text-white/55 mt-0.5 font-mono">SKU {p.sku}{p.orderNumber && <> · commande {p.orderNumber}</>}</p>}
               {editId === p.id && (
                 <div className="flex gap-2 mt-2 flex-wrap">
                   <input className={`${inputCls} !w-28`} style={inputStyle} placeholder="Prix €" inputMode="decimal"
@@ -190,7 +191,7 @@ export default function StockView({ userId, purchases, onChange, filter, setFilt
                     <Check className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={() => setEditId(null)} title="Annuler"
-                    className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-white/40" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                    className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-white/60" style={{ background: 'rgba(255,255,255,0.04)' }}>
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -198,19 +199,20 @@ export default function StockView({ userId, purchases, onChange, filter, setFilt
             </div>
             <span className="text-sm font-bold text-white/80">{money(p.purchasePrice)}</span>
             {p.status === 'en_stock' && <div className="flex items-center gap-1.5 ml-auto">
+              <ListingButton purchaseId={p.id} />
               <button onClick={() => { setEditId(p.id); setEdit({ price: String(p.purchasePrice), sheinUrl: p.sheinUrl || '' }); }}
                 disabled={busy === p.id} title="Modifier le prix / le lien Shein"
-                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 transition-all"
+                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-white/55 hover:text-white/70 transition-all"
                 style={{ background: 'rgba(255,255,255,0.04)' }}>
                 <Pencil className="w-3.5 h-3.5" />
               </button>
               <button onClick={() => ignore(p)} disabled={busy === p.id} title="Pas pour la revente"
-                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 transition-all"
+                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-white/55 hover:text-white/70 transition-all"
                 style={{ background: 'rgba(255,255,255,0.04)' }}>
                 <EyeOff className="w-3.5 h-3.5" />
               </button>
               <button onClick={() => remove(p)} disabled={busy === p.id} title="Supprimer"
-                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-white/30 hover:text-red-300 transition-all"
+                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-white/55 hover:text-red-300 transition-all"
                 style={{ background: 'rgba(255,255,255,0.04)' }}>
                 <Trash2 className="w-3.5 h-3.5" />
               </button>

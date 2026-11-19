@@ -65,7 +65,7 @@ export default function SalesList({ sales, byMonthDesc, selectedMonth, setSelect
       ) : (
         <div className="space-y-10">
           {filter !== 'tout' && !byMonthDesc.some(([k, m]) => (!selectedMonth || k === selectedMonth) && m.sales.some((x) => matchesFilter(x, filter, now))) && (
-            <p className="text-sm text-white/40 text-center py-10">Aucune vente ne correspond à ce filtre.</p>
+            <p className="text-sm text-white/60 text-center py-10">Aucune vente ne correspond à ce filtre.</p>
           )}
           {byMonthDesc
             .filter(([k]) => !selectedMonth || k === selectedMonth)
@@ -77,7 +77,7 @@ export default function SalesList({ sales, byMonthDesc, selectedMonth, setSelect
                 <div className="flex items-center justify-between mb-4 px-1">
                   <div>
                     <p className="text-xs font-bold text-white/60 uppercase tracking-widest">{month.label}</p>
-                    <p className="text-[11px] text-white/25 mt-0.5">{list.length} vente{list.length > 1 ? 's' : ''} · CA {fmtPlain(month.revenue)}</p>
+                    <p className="text-xs text-white/55 mt-0.5">{list.length} vente{list.length > 1 ? 's' : ''} · CA {fmtPlain(month.revenue)}</p>
                   </div>
                   <div className={`text-base font-bold flex items-center gap-1 ${month.profit >= 0 ? 'text-indigo-400' : 'text-red-400'}`}>
                     {month.profit >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
@@ -113,27 +113,27 @@ export default function SalesList({ sales, byMonthDesc, selectedMonth, setSelect
                                       <ExternalLink className="w-3.5 h-3.5" />
                                     </a>
                                   )}
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0"
+                                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold shrink-0"
                                     style={{ background:`${CAT_COLORS[s.category] ?? '#6366f1'}22`, color: CAT_COLORS[s.category] ?? '#818cf8', border:`1px solid ${CAT_COLORS[s.category] ?? '#6366f1'}44` }}>
                                     {s.category}
                                   </span>
                                   {s.isPersonal && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0"
+                                    <span className="text-xs px-2 py-0.5 rounded-full font-semibold shrink-0"
                                       style={{ background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.65)', border:'1px solid rgba(255,255,255,0.12)' }}>
                                       Perso
                                     </span>
                                   )}
                                   {s.size && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0"
-                                      style={{ background:'rgba(255,255,255,0.06)', color:'rgba(255,255,255,0.4)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                                    <span className="text-xs px-2 py-0.5 rounded-full font-semibold shrink-0"
+                                      style={{ background:'rgba(255,255,255,0.06)', color:'rgba(255,255,255,0.6)', border:'1px solid rgba(255,255,255,0.08)' }}>
                                       {s.size}
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-[11px] text-white/25 mt-0.5">
+                                <p className="text-xs text-white/55 mt-0.5">
                                   {parseDate(s.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'})}
                                 </p>
-                                <div className="flex flex-wrap gap-x-3 mt-2 text-[11px] text-white/35">
+                                <div className="flex flex-wrap gap-x-3 mt-2 text-xs text-white/55">
                                   {s.purchasePrice > 0 && <span>Achat <span className="text-white/55">{fmtPlain(s.purchasePrice)}</span></span>}
                                   <span>Vendu <span className="text-white/70 font-semibold">{fmtPlain(s.salePrice)}</span></span>
                                   {s.shippingCost > 0 && <span>Port <span className="text-white/55">−{fmtPlain(s.shippingCost)}</span></span>}
@@ -155,7 +155,7 @@ export default function SalesList({ sales, byMonthDesc, selectedMonth, setSelect
                                   </span>
                                 )}
                                 {s.purchasePrice > 0 && s.salePrice > 0 && (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                  <span className="text-xs font-bold px-2 py-0.5 rounded-full"
                                     style={{ background: isPos ? 'rgba(99,102,241,0.12)' : 'rgba(248,113,113,0.12)',
                                              color: isPos ? '#a5b4fc' : '#fca5a5',
                                              border:`1px solid ${isPos ? 'rgba(99,102,241,0.25)' : 'rgba(248,113,113,0.25)'}` }}>
@@ -165,15 +165,15 @@ export default function SalesList({ sales, byMonthDesc, selectedMonth, setSelect
                                 <div className="flex gap-1">
                                   <button onClick={() => setPersonal([s.id], !s.isPersonal)}
                                     title={s.isPersonal ? "Ce n'est plus un article perso" : "Marquer comme article perso (pas d'achat)"}
-                                    className={`px-2 min-h-[32px] rounded-lg text-[10px] font-bold transition ${s.isPersonal ? 'text-indigo-300 bg-indigo-500/15' : 'text-white/25 hover:text-indigo-300 hover:bg-indigo-500/10'}`}>
+                                    className={`px-2 min-h-[32px] rounded-lg text-xs font-bold transition ${s.isPersonal ? 'text-indigo-300 bg-indigo-500/15' : 'text-white/55 hover:text-indigo-300 hover:bg-indigo-500/10'}`}>
                                     Perso
                                   </button>
                                   <button onClick={() => openEdit(s)}
-                                    className="p-1.5 rounded-lg text-white/20 hover:text-indigo-400 hover:bg-indigo-500/10 transition">
+                                    className="p-1.5 rounded-lg text-white/55 hover:text-indigo-400 hover:bg-indigo-500/10 transition">
                                     <Pencil className="w-3.5 h-3.5" />
                                   </button>
                                   <button onClick={() => setDeleteId(s.id)}
-                                    className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/10 transition">
+                                    className="p-1.5 rounded-lg text-white/55 hover:text-red-400 hover:bg-red-500/10 transition">
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>

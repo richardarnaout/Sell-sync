@@ -33,7 +33,7 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
 
   const hero = (
     <div className="rounded-2xl p-5" style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.16),rgba(139,92,246,0.10))', border:'1px solid rgba(99,102,241,0.28)' }}>
-      <p className="text-[11px] uppercase tracking-wide text-white/45 font-semibold">Bénéfice net du mois</p>
+      <p className="text-xs uppercase tracking-wide text-white/45 font-semibold">Bénéfice net du mois</p>
       <p className="text-3xl sm:text-4xl font-bold mt-1 tracking-tight" style={{ color: cur.profit >= 0 ? '#a5b4fc' : '#f87171' }}>
         {(cur.profit >= 0 ? '+' : '') + eur(cur.profit)}
       </p>
@@ -55,16 +55,16 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
   const secondary = (
     <div className="grid grid-cols-2 gap-3">
       <div className="rounded-2xl p-4 min-w-0" style={CARD}>
-        <p className="text-[11px] uppercase tracking-wide text-white/35 font-semibold">CA du mois</p>
+        <p className="text-xs uppercase tracking-wide text-white/55 font-semibold">CA du mois</p>
         <p className="text-xl font-bold text-white mt-1 truncate">{eur(cur.revenue)}</p>
         {evo !== null ? (
           <p className={`text-xs mt-1 flex items-center gap-1 ${evo >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
             {evo >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}{evo >= 0 ? '+' : ''}{evo.toFixed(0)} % vs mois dernier
           </p>
-        ) : <p className="text-xs text-white/30 mt-1">{cur.count} vente{cur.count > 1 ? 's' : ''}</p>}
+        ) : <p className="text-xs text-white/55 mt-1">{cur.count} vente{cur.count > 1 ? 's' : ''}</p>}
       </div>
       <div className="rounded-2xl p-4 min-w-0" style={CARD}>
-        <p className="text-[11px] uppercase tracking-wide text-white/35 font-semibold">Seuil {y.year}</p>
+        <p className="text-xs uppercase tracking-wide text-white/55 font-semibold">Seuil {y.year}</p>
         <p className="text-sm font-bold text-white mt-1">{y.count} / 30 ventes</p>
         <div className="h-1.5 rounded-full overflow-hidden mt-1.5" style={{ background:'rgba(255,255,255,0.08)' }}>
           <div className="h-full rounded-full" style={{ width:`${y.salesPct}%`, background: y.salesPct >= 100 ? '#f59e0b' : '#6366f1' }} />
@@ -76,21 +76,21 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
 
   const todayList = (
     <div className="rounded-2xl p-4" style={CARD}>
-      <p className="text-sm font-bold text-white mb-3">Ventes du jour <span className="text-white/35 font-medium">({todays.length})</span></p>
-      {todays.length === 0 ? <p className="text-xs text-white/35">Aucune vente enregistrée aujourd'hui.</p> : (
+      <p className="text-sm font-bold text-white mb-3">Ventes du jour <span className="text-white/55 font-medium">({todays.length})</span></p>
+      {todays.length === 0 ? <p className="text-xs text-white/55">Aucune vente enregistrée aujourd'hui.</p> : (
         <div className="space-y-2">
           {todays.map((s) => (
             <div key={s.id} className="flex items-center gap-2 min-w-0">
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-white truncate">{s.article}</p>
-                <p className="text-[11px] text-white/40">Vendu {fmtPlain(s.salePrice)}{s.size ? ` · ${s.size}` : ''}</p>
+                <p className="text-xs text-white/60">Vendu {fmtPlain(s.salePrice)}{s.size ? ` · ${s.size}` : ''}</p>
               </div>
               {s.isPersonal
-                ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.6)' }}>perso</span>
+                ? <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.6)' }}>perso</span>
                 : missingPurchase(s)
-                ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background:'rgba(248,113,113,0.15)', color:'#fca5a5' }}>à compléter</span>
+                ? <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background:'rgba(248,113,113,0.15)', color:'#fca5a5' }}>à compléter</span>
                 : <span className="text-sm font-bold shrink-0" style={{ color: calcProfit(s) >= 0 ? '#818cf8' : '#f87171' }}>{fmt(calcProfit(s))}</span>}
-              <button onClick={() => openEdit(s)} aria-label="Modifier la vente" className="shrink-0 w-11 h-11 flex items-center justify-center rounded-lg text-white/30 hover:text-indigo-400">
+              <button onClick={() => openEdit(s)} aria-label="Modifier la vente" className="shrink-0 w-11 h-11 flex items-center justify-center rounded-lg text-white/55 hover:text-indigo-400">
                 <Pencil className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -102,7 +102,7 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
 
   const chart = (
     <div className="rounded-2xl p-4" style={CARD}>
-      <p className="text-sm font-bold text-white mb-3">Bénéfice par jour <span className="text-white/35 font-medium">(mois en cours)</span></p>
+      <p className="text-sm font-bold text-white mb-3">Bénéfice par jour <span className="text-white/55 font-medium">(mois en cours)</span></p>
       <div className="flex items-end gap-[2px] h-20" role="img" aria-label="Bénéfice par jour du mois en cours">
         {daily.map((d) => (
           <div key={d.day} title={`${d.day} : ${eur(d.profit)}`} className="flex-1 min-w-0 rounded-sm"
@@ -110,7 +110,7 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
               background: d.profit < 0 ? '#ef4444' : d.profit === 0 ? 'rgba(255,255,255,0.08)' : 'linear-gradient(180deg,#8b5cf6,#6366f1)' }} />
         ))}
       </div>
-      <div className="flex justify-between text-[10px] text-white/30 mt-1"><span>1</span><span>{lastDay}</span></div>
+      <div className="flex justify-between text-xs text-white/55 mt-1"><span>1</span><span>{lastDay}</span></div>
     </div>
   );
 
@@ -121,7 +121,7 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
       <span className="text-sm text-white/80">
         <b className="text-amber-200">{stale.length} article{stale.length > 1 ? 's' : ''}</b> en stock depuis plus de {STALE_DAYS} jours ({eur(staleTotal)} immobilisés)
       </span>
-      <Boxes className="w-4 h-4 text-white/30 ml-auto shrink-0" />
+      <Boxes className="w-4 h-4 text-white/55 ml-auto shrink-0" />
     </button>
   );
 

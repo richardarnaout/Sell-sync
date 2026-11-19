@@ -9,5 +9,5 @@
     "outDir": "../.verif",
     "rootDir": ".."
   },
-  "files": ["verif-import.ts", "verif-stats.ts"]
+  "files": ["verif-import.ts", "verif-stats.ts", "verif-ia.ts"]
 }

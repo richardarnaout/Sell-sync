@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
 module.exports = {
-  // Optimiseur d'images désactivé : faille critique de Next 14.2.x (corrigée en 15.5+). Retirer après le passage en Next 15 (T-022.9).
-  images: { unoptimized: true },
+  // Racine fixée au projet : un package-lock.json parasite existe dans le dossier utilisateur et tromperait Next 15.
+  outputFileTracingRoot: __dirname,
 };

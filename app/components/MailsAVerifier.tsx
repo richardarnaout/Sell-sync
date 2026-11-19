@@ -64,12 +64,12 @@ export default function MailsAVerifier({ userId, refreshKey }: { userId: string;
             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
             <div className="min-w-0 flex-1 break-words">
               <p className="text-sm font-semibold text-white">{m.subject || '(sans objet)'}</p>
-              <p className="text-[11px] text-white/50 mt-0.5">
+              <p className="text-xs text-white/50 mt-0.5">
                 {m.received_date ? `reçu le ${m.received_date}` : 'date inconnue'}
                 {m.source_account ? ` · ${m.source_account}` : ''}
                 {m.attempts > 1 ? ` · ${m.attempts} essais` : ''}
               </p>
-              <p className="text-[11px] text-amber-300/80 mt-0.5">
+              <p className="text-xs text-amber-300/80 mt-0.5">
                 {m.reason}{m.missing && m.missing.length ? ` (manque : ${m.missing.join(', ')})` : ''}
               </p>
             </div>

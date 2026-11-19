@@ -1,6 +1,5 @@
-import { generateObject } from 'ai';
 import { z } from 'zod';
-import { getModel, MODEL_ANALYST } from './ai';
+import { aiDeps } from './ai';
 
 /**
  * Brique d'extraction (Phase 1 du plan auto-import).
@@ -99,12 +98,9 @@ export async function extractFromEmail(
   body: string,
   receivedDate: string,
 ): Promise<ExtractResult> {
-  const { object } = await generateObject({
-    model: getModel(MODEL_ANALYST),
-    schema: ExtractSchema,
-    system: SYSTEM,
-    prompt: `SUJET: ${subject}\n\nCORPS DU MAIL:\n${body}`,
-  });
+  const object = await aiDeps.object(ExtractSchema, SYSTEM, [
+    { type: 'text', text: 'SUJET: ' + subject + '\n\nCORPS DU MAIL:\n' + body },
+  ]);
   // La date du corps prime SI elle est propre (YYYY-MM-DD) ; sinon (absente ou mal
   // formatée, ex. "18/07/2026 17 h 05") on retombe sur la date du mail, toujours fiable.
   const clean = object.date && /^\d{4}-\d{2}-\d{2}$/.test(object.date) ? object.date : receivedDate;

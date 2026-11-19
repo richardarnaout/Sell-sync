@@ -112,8 +112,8 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
                   style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>VENDU</span>
                 <span className="text-sm font-bold text-white">{sale.article}</span>
                 {sale.size && <span className="text-xs text-white/50">taille {sale.size}</span>}
-                {sale.color && <span className="text-xs text-white/40">· {sale.color}</span>}
-                <span className="text-xs text-white/40 flex items-center gap-1">
+                {sale.color && <span className="text-xs text-white/60">· {sale.color}</span>}
+                <span className="text-xs text-white/60 flex items-center gap-1">
                   · le {sale.date}
                   {sale.dateApprox && (
                     <span title="Mail « Ton article s'est vendu » non trouvé : date de la transaction finalisée"
@@ -125,12 +125,12 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
 
               {/* Articles du stock : 1 clic pour relier */}
               {candidates.length === 0 ? (
-                <p className="text-xs text-white/40 flex items-center gap-1.5">
+                <p className="text-xs text-white/60 flex items-center gap-1.5">
                   <Package className="w-3.5 h-3.5" /> {(sale.rejectedPurchaseIds?.length || 0) > 0 ? 'Plus de suggestion — rouvre les suggestions écartées ci-dessous.' : 'Aucun article en stock — ajoute la vente à la main.'}
                 </p>
               ) : (
                 <>
-                  <p className="text-[11px] text-white/40 mb-2">
+                  <p className="text-xs text-white/60 mb-2">
                     {same.length > 0 && !showAll[sale.id]
                       ? `Stock en taille ${sale.size} — quel article as-tu vendu ?`
                       : "Tout le stock — quel article as-tu vendu ?"}
@@ -157,7 +157,7 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
                             {/* En-tête : « Meilleure correspondance » + croix bien visible pour écarter la suggestion */}
                             <div className="flex items-center justify-between gap-2 mb-0.5">
                               {best
-                                ? <p className="text-[10px] font-bold text-emerald-300 uppercase tracking-wide">Meilleure correspondance</p>
+                                ? <p className="text-xs font-bold text-emerald-300 uppercase tracking-wide">Meilleure correspondance</p>
                                 : <span />}
                               <button onClick={() => setRejected(sale, [...rejected, p.id])} disabled={busy === sale.id}
                                 title="Ce n'est pas cet article : ne plus me le proposer pour cette vente" aria-label="Écarter cette suggestion"
@@ -169,10 +169,10 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
                             <p className="text-sm font-semibold text-white line-clamp-2 break-words">
                               {p.model ? `[${p.model}] ` : ''}{p.article}
                             </p>
-                            <p className="text-[11px] text-white/40 mt-0.5">
+                            <p className="text-xs text-white/60 mt-0.5">
                               {p.size || '?'}{p.color ? ` · ${p.color}` : ''} · payé {money(p.purchasePrice)}
                             </p>
-                            <p className="text-[11px] text-white/50 mt-0.5">
+                            <p className="text-xs text-white/50 mt-0.5">
                               Bénéfice : <span className={`font-bold ${profit >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{money(profit)}</span>
                             </p>
                             <div className="flex items-center gap-2 flex-wrap mt-2">
@@ -190,7 +190,7 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
                                   {link.kind === 'order' ? 'Voir la commande Shein' : 'Voir sur Shein'}
                                 </a>
                               ) : (
-                                <span className="text-[11px] text-white/30">Pas de lien Shein : à coller dans Stock</span>
+                                <span className="text-xs text-white/55">Pas de lien Shein : à coller dans Stock</span>
                               )}
                             </div>
                           </div>
@@ -227,7 +227,7 @@ export default function ReviewQueue({ userId, purchases, pendingSales, onChange 
                   style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)' }}>
                   Article perso
                 </button>
-                {busy === sale.id && <span className="text-xs text-white/40">Enregistrement…</span>}
+                {busy === sale.id && <span className="text-xs text-white/60">Enregistrement…</span>}
               </div>
             </div>
           );
