@@ -59,7 +59,10 @@ export function parseCSVRow(row: string): string[] {
 }
 export function fmt(n: number) { return (n >= 0 ? '+' : '') + n.toFixed(2).replace('.', ',') + ' €'; }
 export function fmtPlain(n: number) { return n.toFixed(2).replace('.', ',') + ' €'; }
-export function today() { return new Date().toISOString().slice(0, 10); }
+/** Date du jour AAAA-MM-JJ en heure LOCALE (plus la veille entre 0 h et 2 h en France). */
+export function today(d: Date = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 export function parseDate(str: string) { const [y,m,d] = str.split('-').map(Number); return new Date(y, m-1, d); }
 
 export const emptyForm = (): FormState => ({

@@ -1,19 +1,22 @@
 'use client';
 
-import { TrendingUp, TrendingDown, AlertTriangle, Pencil, Boxes } from 'lucide-react';
-import ReviewQueue from './ReviewQueue';
+import { TrendingUp, TrendingDown, AlertTriangle, Pencil, Boxes, Tag } from 'lucide-react';
+import MailsAVerifier from './MailsAVerifier';
+import { Button, Card, Badge } from './ui';
 import { Sale, today, fmt, fmtPlain, calcProfit } from '../lib/sales';
-import { Purchase, PendingSale, isStale, STALE_DAYS } from '../lib/stock';
+import { Purchase, isStale, STALE_DAYS } from '../lib/stock';
+import { splitStock } from '../lib/sellArticle';
+import type { StockFilter } from './StockView';
 import { totals, salesOfMonth, prevMonthKey, evolutionPct, dailyProfit, missingPurchase } from '../lib/dashboard';
 import type { SalesStats } from '../lib/useSalesStats';
 
-const CARD = { background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' };
 const eur = (n: number) => n.toFixed(2).replace('.', ',') + ' €';
 
-// Accueil : ce qui demande un geste (ventes à relier), puis le résultat du mois et les ventes du jour.
-export default function TodayView({ userId, sales, purchases, pendingSales, st, onChange, openEdit, goStock }: {
-  userId: string; sales: Sale[]; purchases: Purchase[]; pendingSales: PendingSale[]; st: SalesStats;
-  onChange: () => void; openEdit: (s: Sale) => void; goStock: () => void;
+// Accueil : ce qui demande un geste (mails Shein à vérifier, prix de vente à saisir), puis le résultat du mois.
+// T-034.3 : plus de file « ventes à relier » (liaison supprimée).
+export default function TodayView({ userId, sales, purchases, st, openEdit, goStock }: {
+  userId: string; sales: Sale[]; purchases: Purchase[]; st: SalesStats;
+  openEdit: (s: Sale) => void; goStock: (f?: StockFilter) => void;
 }) {
   const now = today();
   const monthKey = now.slice(0, 7);
@@ -27,12 +30,13 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
   const goal = st.goal;
   const goalPct = goal ? Math.min(100, (cur.count / goal.targetCount) * 100) : 0;
   const todays = sales.filter((s) => s.date === now);
-  const stale = purchases.filter((p) => isStale(p, now));
+  const { inStock } = splitStock(purchases, sales);
+  const stale = inStock.filter((p) => isStale(p, now));
   const staleTotal = stale.reduce((a, p) => a + p.purchasePrice, 0);
   const y = st.yearCnt;
 
   const hero = (
-    <div className="rounded-2xl p-5" style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.16),rgba(139,92,246,0.10))', border:'1px solid rgba(99,102,241,0.28)' }}>
+    <Card className="p-5" style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.16),rgba(139,92,246,0.10))', border:'1px solid rgba(99,102,241,0.28)' }}>
       <p className="text-xs uppercase tracking-wide text-white/45 font-semibold">Bénéfice net du mois</p>
       <p className="text-3xl sm:text-4xl font-bold mt-1 tracking-tight" style={{ color: cur.profit >= 0 ? '#a5b4fc' : '#f87171' }}>
         {(cur.profit >= 0 ? '+' : '') + eur(cur.profit)}
@@ -49,12 +53,12 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
       )}
       {cur.perso.count > 0 && <p className="text-xs text-white/55 mt-3">Revente {eur(cur.resale.revenue)} (marge {cur.resale.margin.toFixed(0)} %) · perso {eur(cur.perso.revenue)} ({cur.perso.count} vente{cur.perso.count > 1 ? 's' : ''}, sans marge).</p>}
       {cur.missing > 0 && <p className="text-xs text-amber-300/90 mt-3">{cur.missing} vente{cur.missing > 1 ? 's' : ''} sans prix d'achat : exclue{cur.missing > 1 ? 's' : ''} du bénéfice.</p>}
-    </div>
+    </Card>
   );
 
   const secondary = (
     <div className="grid grid-cols-2 gap-3">
-      <div className="rounded-2xl p-4 min-w-0" style={CARD}>
+      <Card className="p-4">
         <p className="text-xs uppercase tracking-wide text-white/55 font-semibold">CA du mois</p>
         <p className="text-xl font-bold text-white mt-1 truncate">{eur(cur.revenue)}</p>
         {evo !== null ? (
@@ -62,20 +66,20 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
             {evo >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}{evo >= 0 ? '+' : ''}{evo.toFixed(0)} % vs mois dernier
           </p>
         ) : <p className="text-xs text-white/55 mt-1">{cur.count} vente{cur.count > 1 ? 's' : ''}</p>}
-      </div>
-      <div className="rounded-2xl p-4 min-w-0" style={CARD}>
+      </Card>
+      <Card className="p-4">
         <p className="text-xs uppercase tracking-wide text-white/55 font-semibold">Seuil {y.year}</p>
         <p className="text-sm font-bold text-white mt-1">{y.count} / 30 ventes</p>
         <div className="h-1.5 rounded-full overflow-hidden mt-1.5" style={{ background:'rgba(255,255,255,0.08)' }}>
           <div className="h-full rounded-full" style={{ width:`${y.salesPct}%`, background: y.salesPct >= 100 ? '#f59e0b' : '#6366f1' }} />
         </div>
         <p className="text-xs text-white/50 mt-1.5">{y.revenue.toFixed(0)} / 2000 € de CA</p>
-      </div>
+      </Card>
     </div>
   );
 
   const todayList = (
-    <div className="rounded-2xl p-4" style={CARD}>
+    <Card className="p-4">
       <p className="text-sm font-bold text-white mb-3">Ventes du jour <span className="text-white/55 font-medium">({todays.length})</span></p>
       {todays.length === 0 ? <p className="text-xs text-white/55">Aucune vente enregistrée aujourd'hui.</p> : (
         <div className="space-y-2">
@@ -86,22 +90,22 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
                 <p className="text-xs text-white/60">Vendu {fmtPlain(s.salePrice)}{s.size ? ` · ${s.size}` : ''}</p>
               </div>
               {s.isPersonal
-                ? <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.6)' }}>perso</span>
+                ? <Badge color="#cbd5e1">perso</Badge>
                 : missingPurchase(s)
-                ? <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background:'rgba(248,113,113,0.15)', color:'#fca5a5' }}>à compléter</span>
+                ? <Badge color="#fca5a5">à compléter</Badge>
                 : <span className="text-sm font-bold shrink-0" style={{ color: calcProfit(s) >= 0 ? '#818cf8' : '#f87171' }}>{fmt(calcProfit(s))}</span>}
-              <button onClick={() => openEdit(s)} aria-label="Modifier la vente" className="shrink-0 w-11 h-11 flex items-center justify-center rounded-lg text-white/55 hover:text-indigo-400">
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
+              <Button icon onClick={() => openEdit(s)} aria-label="Modifier la vente" title="Modifier la vente" className="shrink-0">
+                <Pencil className="w-4 h-4" />
+              </Button>
             </div>
           ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 
   const chart = (
-    <div className="rounded-2xl p-4" style={CARD}>
+    <Card className="p-4">
       <p className="text-sm font-bold text-white mb-3">Bénéfice par jour <span className="text-white/55 font-medium">(mois en cours)</span></p>
       <div className="flex items-end gap-[2px] h-20" role="img" aria-label="Bénéfice par jour du mois en cours">
         {daily.map((d) => (
@@ -111,27 +115,38 @@ export default function TodayView({ userId, sales, purchases, pendingSales, st, 
         ))}
       </div>
       <div className="flex justify-between text-xs text-white/55 mt-1"><span>1</span><span>{lastDay}</span></div>
-    </div>
+    </Card>
   );
 
-  const alerts = stale.length > 0 && (
-    <button onClick={goStock} className="w-full text-left rounded-2xl p-4 flex items-center gap-3 min-h-[44px]"
-      style={{ background:'rgba(245,158,11,0.07)', border:'1px solid rgba(245,158,11,0.25)' }}>
-      <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0" />
-      <span className="text-sm text-white/80">
-        <b className="text-amber-200">{stale.length} article{stale.length > 1 ? 's' : ''}</b> en stock depuis plus de {STALE_DAYS} jours ({eur(staleTotal)} immobilisés)
+  const toPrice = inStock.length > 0 && (
+    <button onClick={() => goStock('stock')} className="w-full text-left rounded-2xl p-4 flex items-center gap-3 min-h-[44px]"
+      style={{ background:'rgba(16,185,129,0.07)', border:'1px solid rgba(16,185,129,0.25)' }}>
+      <Tag className="w-5 h-5 text-emerald-300 shrink-0" />
+      <span className="text-sm text-white/80 min-w-0">
+        <b className="text-emerald-200">{inStock.length} article{inStock.length > 1 ? 's' : ''} Shein</b> en stock : saisis le prix de vente Vinted quand {inStock.length > 1 ? 'ils partent' : 'il part'}
       </span>
-      <Boxes className="w-4 h-4 text-white/55 ml-auto shrink-0" />
+      <Boxes className="hidden sm:block w-4 h-4 text-white/55 ml-auto shrink-0" />
     </button>
   );
 
-  // Mobile : une colonne dans l'ordre hero, CA/seuil, à relier, ventes du jour, graphe, alertes.
+  const alerts = stale.length > 0 && (
+    <button onClick={() => goStock('vieux')} className="w-full text-left rounded-2xl p-4 flex items-center gap-3 min-h-[44px]"
+      style={{ background:'rgba(245,158,11,0.07)', border:'1px solid rgba(245,158,11,0.25)' }}>
+      <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0" />
+      <span className="text-sm text-white/80 min-w-0">
+        <b className="text-amber-200">{stale.length} article{stale.length > 1 ? 's' : ''}</b> en stock depuis plus de {STALE_DAYS} jours ({eur(staleTotal)} immobilisés)
+      </span>
+      <Boxes className="hidden sm:block w-4 h-4 text-white/55 ml-auto shrink-0" />
+    </button>
+  );
+
+  // Mobile : une colonne dans l'ordre hero, CA/seuil, mails à vérifier + prix à saisir, ventes du jour, graphe, alertes.
   // Desktop (xl) : action à gauche, vue d'ensemble à droite (les colonnes ne sont des blocs qu'à partir de xl).
   const col = 'contents xl:flex xl:flex-col xl:gap-4 min-w-0';
   return (
     <div className="animate-fade-in grid grid-cols-1 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-4 xl:gap-6">
       <div className={col}>
-        <div className="order-3 xl:order-none min-w-0"><ReviewQueue userId={userId} purchases={purchases} pendingSales={pendingSales} onChange={onChange} /></div>
+        <div className="order-3 xl:order-none min-w-0 flex flex-col gap-4"><MailsAVerifier userId={userId} />{toPrice}</div>
         <div className="order-4 xl:order-none">{todayList}</div>
         {alerts && <div className="order-6 xl:order-none">{alerts}</div>}
       </div>

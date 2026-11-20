@@ -7,8 +7,8 @@
 import assert from 'node:assert/strict';
 import { parseVintedFinalized, parseVintedSold, parseAmount, findDate } from '../app/lib/parseVinted';
 import { matchScore } from '../app/lib/matchSale';
-import { importMail, mailFingerprint, resolveUserId, secretMatches, type PendingRow, type MailInput, type ImportDeps, type SoldNoticeRow, type PurchaseRow, type UnparsedRow } from '../app/lib/importMail';
-import { parseSheinOrder } from '../app/lib/parseShein';
+import { importMail, legacyImportVinted, VINTED_IGNORED_REASON, mailFingerprint, resolveUserId, secretMatches, type PendingRow, type MailInput, type ImportDeps, type SoldNoticeRow, type PurchaseRow, type UnparsedRow } from '../app/lib/importMail';
+import { parseSheinOrder, sheinPhotos, sheinPhotoByAlt } from '../app/lib/parseShein';
 import { sizeKey, sameSizeStock, type Purchase, type PendingSale } from '../app/lib/stock';
 
 let passed = 0;
@@ -103,27 +103,27 @@ const MAIL_NO_AMOUNT = ['La transaction est finalisée', 'Article : Pull marin',
     receivedDate: '2026-07-19',
   });
 
-  await test('insertion puis doublons (même mail renvoyé, même transaction via un autre mail)', async () => {
-    const a = await importMail(mail(MAIL_INLINE, 'm1'), 'u1', { insertPending: fakeInsert });
+  await test('[ancien flux Vinted] insertion puis doublons (même mail renvoyé, même transaction via un autre mail)', async () => {
+    const a = await legacyImportVinted(mail(MAIL_INLINE, 'm1'), 'u1', { insertPending: fakeInsert });
     assert.equal(a.status, 'inserted');
     assert.equal(rows[0].sale_price, 29);
     assert.equal(rows[0].source_account, 'vendeur@gmail.com');
-    assert.equal((await importMail(mail(MAIL_INLINE, 'm1'), 'u1', { insertPending: fakeInsert })).status, 'duplicate');
-    assert.equal((await importMail(mail(MAIL_INLINE, 'm2'), 'u1', { insertPending: fakeInsert })).status, 'duplicate');
-    assert.equal((await importMail(mail(MAIL_LINES, 'm3'), 'u1', { insertPending: fakeInsert })).status, 'inserted');
-    assert.equal((await importMail(mail(MAIL_LINES, 'm3'), 'u1', { insertPending: fakeInsert })).status, 'duplicate');
+    assert.equal((await legacyImportVinted(mail(MAIL_INLINE, 'm1'), 'u1', { insertPending: fakeInsert })).status, 'duplicate');
+    assert.equal((await legacyImportVinted(mail(MAIL_INLINE, 'm2'), 'u1', { insertPending: fakeInsert })).status, 'duplicate');
+    assert.equal((await legacyImportVinted(mail(MAIL_LINES, 'm3'), 'u1', { insertPending: fakeInsert })).status, 'inserted');
+    assert.equal((await legacyImportVinted(mail(MAIL_LINES, 'm3'), 'u1', { insertPending: fakeInsert })).status, 'duplicate');
     assert.equal(rows.length, 2);
   });
-  await test('mail non finalisé → ignored, rien écrit', async () => {
-    const r = await importMail(mail(MAIL_SOLD, 'm4', "Ton article s'est vendu"), 'u1', { insertPending: fakeInsert });
+  await test('[ancien flux Vinted] mail non finalisé → ignored, rien écrit', async () => {
+    const r = await legacyImportVinted(mail(MAIL_SOLD, 'm4', "Ton article s'est vendu"), 'u1', { insertPending: fakeInsert });
     assert.equal(r.status, 'ignored');
     assert.equal(rows.length, 2);
   });
-  await test("parseur en échec : Gemini seulement s'il est configuré", async () => {
-    const sans = await importMail(mail(MAIL_NO_AMOUNT, 'm5'), 'u1', { insertPending: fakeInsert });
+  await test("[ancien flux Vinted] parseur en échec : Gemini seulement s'il est configuré", async () => {
+    const sans = await legacyImportVinted(mail(MAIL_NO_AMOUNT, 'm5'), 'u1', { insertPending: fakeInsert });
     assert.equal(sans.status, 'unparsed');
     let appels = 0;
-    const avec = await importMail(mail(MAIL_NO_AMOUNT, 'm5'), 'u1', {
+    const avec = await legacyImportVinted(mail(MAIL_NO_AMOUNT, 'm5'), 'u1', {
       insertPending: fakeInsert,
       aiFallback: async () => {
         appels++;
@@ -133,7 +133,7 @@ const MAIL_NO_AMOUNT = ['La transaction est finalisée', 'Article : Pull marin',
     assert.equal(appels, 1);
     assert.ok(avec.status === 'inserted' && 'via' in avec && avec.via === 'gemini');
     let appelsInutiles = 0;
-    await importMail(mail(MAIL_INLINE, 'm6'), 'u1', {
+    await legacyImportVinted(mail(MAIL_INLINE, 'm6'), 'u1', {
       insertPending: fakeInsert,
       aiFallback: async () => {
         appelsInutiles++;
@@ -223,6 +223,24 @@ const MAIL_NO_AMOUNT = ['La transaction est finalisée', 'Article : Pull marin',
     assert.deepEqual(parseSheinOrder('Votre colis est livré', 'Livré', '2026-12-04'), { ok: false, reason: 'not_shein_order' });
   });
 
+  await test('T-033 photos Shein : format « images3_pi », entités HTML, photo choisie par texte alternatif', () => {
+    // Ancien format du CDN (toujours servi) : n'était pas reconnu → photo_url vide → carrés dans l'app.
+    assert.deepEqual(sheinPhotos('<img src="https://img.ltwebstatic.com/images3_pi/2024/11/15/9d/1731_thumbnail_405x552.jpg">'),
+      ['https://img.ltwebstatic.com/images3_pi/2024/11/15/9d/1731_thumbnail_405x552.jpg']);
+    // URL dans un style « url(&quot;…&quot;) » : le &quot; ne doit pas rester collé à l'URL.
+    assert.deepEqual(sheinPhotos('<td style="background:url(&quot;//img.ltwebstatic.com/v4/j/pi/a.jpg&quot;)">'),
+      ['https://img.ltwebstatic.com/v4/j/pi/a.jpg']);
+    // Logos / bannières hors « pi » ignorés.
+    assert.deepEqual(sheinPhotos('<img src="https://img.ltwebstatic.com/images3_ccc/2024/logo.png">'), []);
+    // Une suggestion avant l'article : l'ordre seul se tromperait, le texte alternatif tranche.
+    const html = '<img alt="Vous aimerez aussi" src="https://img.ltwebstatic.com/v4/j/pi/suggestion.jpg">'
+      + '<img src="https://img.ltwebstatic.com/images3_pi/2024/manteau.jpg" alt="SHEIN EZwear Manteau long &eacute;l&eacute;gant et moelleux pour femme, beige, col montant, manches longues, avec poches, pour sorties, soir&eacute;es et rendez-vous d&#39;hiver">';
+    const r = parseSheinOrder(SHEIN_SUBJECT, SHEIN_ONE, '2026-11-18', html.replace(/&eacute;/g, 'é'), 'SHEIN <noreply@sheinnotice.com>');
+    assert.ok(r.ok, JSON.stringify(r));
+    if (!r.ok) return;
+    assert.equal(r.order.items[0].photoUrl, 'https://img.ltwebstatic.com/images3_pi/2024/manteau.jpg');
+  });
+
   // ── Fausse base complète (mêmes règles d'unicité que les fichiers SQL) ──
   const db = { pending: [] as (PendingRow & { id: string })[], notices: [] as (SoldNoticeRow & { id: string; used: boolean })[], purchases: [] as PurchaseRow[] };
   const deps: ImportDeps = {
@@ -256,6 +274,10 @@ const MAIL_NO_AMOUNT = ['La transaction est finalisée', 'Article : Pull marin',
       db.purchases.push(row);
       return 'inserted';
     },
+    fillPurchasePhoto: async (row) => {
+      const p = db.purchases.find((x) => x.user_id === row.user_id && x.order_number === row.order_number && x.sku === row.sku && x.unit_index === row.unit_index);
+      if (p && !p.photo_url) p.photo_url = row.photo_url;
+    },
   };
   const m2 = (subject: string, body: string, id: string, receivedDate: string, extra: Partial<MailInput> = {}): MailInput =>
     ({ account: 'Vendeur@Gmail.com', messageId: id, subject, body, receivedDate, ...extra });
@@ -270,26 +292,35 @@ const MAIL_NO_AMOUNT = ['La transaction est finalisée', 'Article : Pull marin',
     assert.ok(again.status === 'duplicate' && 'kind' in again && again.kind === 'shein_order' && again.duplicates === 3);
     assert.equal(db.purchases.length, 3);
   });
-  await test("date de vente = date du mail « s'est vendu » (avant le « finalisée »)", async () => {
-    const s = await importMail(m2(SOLD_SUBJECT, SOLD_BODY, 'v1', '2026-11-08'), 'u1', deps);
+  await test("T-033 ré-import : la photo manquante est rattrapée, une photo existante n'est pas écrasée", async () => {
+    db.purchases[2].photo_url = null; // achat importé avant le correctif, sans photo
+    const html = '<img src="//img.ltwebstatic.com/images3_pi/robe-bis.jpg"><img src="//img.ltwebstatic.com/images3_pi/pull-bis.jpg">';
+    const r = await importMail(m2(SHEIN_SUBJECT, SHEIN_TWO, 's1-ter', '2026-12-06', { html }), 'u1', deps);
+    assert.ok(r.status === 'duplicate');
+    assert.equal(db.purchases.length, 3);
+    assert.equal(db.purchases[0].photo_url, 'https://img.ltwebstatic.com/v4/j/pi/robe.jpg');
+    assert.equal(db.purchases[2].photo_url, 'https://img.ltwebstatic.com/images3_pi/pull-bis.jpg');
+  });
+  await test("[ancien flux Vinted] date de vente = date du mail « s'est vendu » (avant le « finalisée »)", async () => {
+    const s = await legacyImportVinted(m2(SOLD_SUBJECT, SOLD_BODY, 'v1', '2026-11-08'), 'u1', deps);
     assert.ok(s.status === 'inserted' && 'kind' in s && s.kind === 'vinted_sold' && s.date === '2026-11-08');
-    const f = await importMail(m2(SUBJECT, REAL_FINALIZED, 'f1', '2026-11-12'), 'u1', deps);
+    const f = await legacyImportVinted(m2(SUBJECT, REAL_FINALIZED, 'f1', '2026-11-12'), 'u1', deps);
     assert.ok(f.status === 'inserted' && 'dateApprox' in f && !f.dateApprox);
     const row = db.pending.find((p) => p.transaction_number === '23324499342')!;
     assert.equal(row.date, '2026-11-08');
     assert.equal(row.date_approx, false);
     assert.equal(db.notices[0].used, true);
   });
-  await test("sans « s'est vendu » : date du finalisé + date_approx, corrigée si l'avis arrive après", async () => {
-    await importMail(m2(SUBJECT, MAIL_INLINE, 'f2', '2026-07-19'), 'u1', deps);
+  await test("[ancien flux Vinted] sans « s'est vendu » : date du finalisé + date_approx, corrigée si l'avis arrive après", async () => {
+    await legacyImportVinted(m2(SUBJECT, MAIL_INLINE, 'f2', '2026-07-19'), 'u1', deps);
     const row = db.pending.find((p) => p.transaction_number === '20886805143')!;
     assert.equal(row.date, '2026-07-19');
     assert.equal(row.date_approx, true);
-    const late = await importMail(m2(SOLD_SUBJECT, "Ton article « Robe Violetta Tifany » s'est vendu.", 'v2', '2026-07-16'), 'u1', deps);
+    const late = await legacyImportVinted(m2(SOLD_SUBJECT, "Ton article « Robe Violetta Tifany » s'est vendu.", 'v2', '2026-07-16'), 'u1', deps);
     assert.ok('kind' in late && late.kind === 'vinted_sold' && late.fixedPending);
     assert.equal(row.date, '2026-07-16');
     assert.equal(row.date_approx, false);
-    assert.equal((await importMail(m2(SOLD_SUBJECT, SOLD_BODY, 'v1', '2026-11-08'), 'u1', deps)).status, 'duplicate');
+    assert.equal((await legacyImportVinted(m2(SOLD_SUBJECT, SOLD_BODY, 'v1', '2026-11-08'), 'u1', deps)).status, 'duplicate');
   });
   // ══ T-021.2 : correctifs après le premier import réel (18/11/2026) ══
   // Texte brut Gmail réel : la photo de l'article apparaît en « [image: <alt>] ».
@@ -348,35 +379,35 @@ const MAIL_NO_AMOUNT = ['La transaction est finalisée', 'Article : Pull marin',
     assert.equal(matchScore({ article: 'Robe lumina', size: '', price: null, date: '2026-11-07' },
       { article: 'Robe lilas lumina', size: '', price: null, date: '2026-11-01' }), null, '1 seul mot commun sans taille ni prix');
   });
-  await test('import réel : finalisé « Robe lumina » rattaché au vendu « [image: Robe lilas lumina Taille L] »', async () => {
+  await test('[ancien flux Vinted] import réel : finalisé « Robe lumina » rattaché au vendu « [image: Robe lilas lumina Taille L] »', async () => {
     const before = db.notices.length;
-    await importMail(m2(SOLD_SUBJECT, ['acheteuse a acheté', '| [image: Robe lilas lumina Taille L] |', '| 25,00 € |'].join('\n'), 'r1', '2026-10-29'), 'u1', deps);
+    await legacyImportVinted(m2(SOLD_SUBJECT, ['acheteuse a acheté', '| [image: Robe lilas lumina Taille L] |', '| 25,00 € |'].join('\n'), 'r1', '2026-10-29'), 'u1', deps);
     assert.equal(db.notices[before].article, 'Robe lilas lumina Taille L');
-    const f = await importMail(m2(SUBJECT, finalReal('Robe lumina taille L', '90000000001', '07/11/2026', '25,00 €'), 'r2', '2026-11-07'), 'u1', deps);
+    const f = await legacyImportVinted(m2(SUBJECT, finalReal('Robe lumina taille L', '90000000001', '07/11/2026', '25,00 €'), 'r2', '2026-11-07'), 'u1', deps);
     assert.ok(f.status === 'inserted' && 'dateApprox' in f && !f.dateApprox, JSON.stringify(f));
     assert.equal(db.pending.find((p) => p.transaction_number === '90000000001')!.date, '2026-10-29');
     assert.equal(db.notices[before].used, true);
   });
-  await test('import réel inverse : finalisé « Jena Stradivarius » (40, 4 €) puis vendu « Jena Stradivarius taille 40 »', async () => {
-    const f = await importMail(m2(SUBJECT, finalReal('Jena Stradivarius taille 40', '90000000002', '25/10/2026', '4,00 €'), 'r3', '2026-10-25'), 'u1', deps);
+  await test('[ancien flux Vinted] import réel inverse : finalisé « Jena Stradivarius » (40, 4 €) puis vendu « Jena Stradivarius taille 40 »', async () => {
+    const f = await legacyImportVinted(m2(SUBJECT, finalReal('Jena Stradivarius taille 40', '90000000002', '25/10/2026', '4,00 €'), 'r3', '2026-10-25'), 'u1', deps);
     assert.ok('dateApprox' in f && f.dateApprox);
-    const s = await importMail(m2(SOLD_SUBJECT, soldReal('Jena Stradivarius taille 40', '| Jena Stradivarius taille 40 4,00 € |'), 'r4', '2026-10-21'), 'u1', deps);
+    const s = await legacyImportVinted(m2(SOLD_SUBJECT, soldReal('Jena Stradivarius taille 40', '| Jena Stradivarius taille 40 4,00 € |'), 'r4', '2026-10-21'), 'u1', deps);
     assert.ok('kind' in s && s.kind === 'vinted_sold' && s.fixedPending, JSON.stringify(s));
     const row = db.pending.find((p) => p.transaction_number === '90000000002')!;
     assert.deepEqual([row.date, row.date_approx], ['2026-10-21', false]);
   });
-  await test('candidat ambigu (deux « vendu » possibles) → aucun rattachement, date_approx gardée', async () => {
-    await importMail(m2(SOLD_SUBJECT, soldReal('Pull Mango vert taille S', '| Pull Mango vert taille S 15,00 € |'), 'a1', '2026-09-01'), 'u1', deps);
-    await importMail(m2(SOLD_SUBJECT, soldReal('Pull Mango vert taille S', '| Pull Mango vert taille S 15,00 € |'), 'a2', '2026-09-03'), 'u1', deps);
-    const f = await importMail(m2(SUBJECT, finalReal('Pull Mango vert taille S', '90000000003', '06/09/2026', '15,00 €'), 'a3', '2026-09-06'), 'u1', deps);
+  await test('[ancien flux Vinted] candidat ambigu (deux « vendu » possibles) → aucun rattachement, date_approx gardée', async () => {
+    await legacyImportVinted(m2(SOLD_SUBJECT, soldReal('Pull Mango vert taille S', '| Pull Mango vert taille S 15,00 € |'), 'a1', '2026-09-01'), 'u1', deps);
+    await legacyImportVinted(m2(SOLD_SUBJECT, soldReal('Pull Mango vert taille S', '| Pull Mango vert taille S 15,00 € |'), 'a2', '2026-09-03'), 'u1', deps);
+    const f = await legacyImportVinted(m2(SUBJECT, finalReal('Pull Mango vert taille S', '90000000003', '06/09/2026', '15,00 €'), 'a3', '2026-09-06'), 'u1', deps);
     assert.ok('dateApprox' in f && f.dateApprox, JSON.stringify(f));
     const row = db.pending.find((p) => p.transaction_number === '90000000003')!;
     assert.deepEqual([row.date, row.date_approx], ['2026-09-06', true]);
     assert.ok(db.notices.filter((n) => n.article.startsWith('Pull Mango')).every((n) => !n.used));
     // Sens inverse : deux ventes approximatives possibles pour un même avis → rien.
-    await importMail(m2(SUBJECT, finalReal('Gilet Kiabi rose taille M', '90000000004', '10/08/2026', '8,00 €'), 'b1', '2026-08-10'), 'u1', deps);
-    await importMail(m2(SUBJECT, finalReal('Gilet Kiabi rose taille M', '90000000005', '12/08/2026', '8,00 €'), 'b2', '2026-08-12'), 'u1', deps);
-    const s = await importMail(m2(SOLD_SUBJECT, soldReal('Gilet Kiabi rose taille M', '| Gilet Kiabi rose taille M 8,00 € |'), 'b3', '2026-08-08'), 'u1', deps);
+    await legacyImportVinted(m2(SUBJECT, finalReal('Gilet Kiabi rose taille M', '90000000004', '10/08/2026', '8,00 €'), 'b1', '2026-08-10'), 'u1', deps);
+    await legacyImportVinted(m2(SUBJECT, finalReal('Gilet Kiabi rose taille M', '90000000005', '12/08/2026', '8,00 €'), 'b2', '2026-08-12'), 'u1', deps);
+    const s = await legacyImportVinted(m2(SOLD_SUBJECT, soldReal('Gilet Kiabi rose taille M', '| Gilet Kiabi rose taille M 8,00 € |'), 'b3', '2026-08-08'), 'u1', deps);
     assert.ok('kind' in s && s.kind === 'vinted_sold' && !s.fixedPending);
     assert.ok(db.pending.filter((p) => p.article.startsWith('Gilet Kiabi')).every((p) => p.date_approx));
   });
@@ -387,19 +418,91 @@ const MAIL_NO_AMOUNT = ['La transaction est finalisée', 'Article : Pull marin',
     assert.equal(sansHint.status, 'ignored');
   });
 
-  await test("mail non reconnu (422) noté pour l'app ; une base en panne ne change pas la réponse", async () => {
+  await test("mail Shein non reconnu (422) noté pour l'app ; une base en panne ne change pas la réponse", async () => {
     const notes: UnparsedRow[] = [];
-    const r = await importMail(mail(MAIL_NO_AMOUNT, 'm9'), 'u1', { insertPending: fakeInsert, recordUnparsed: async (row) => { notes.push(row); } });
+    const rec = { recordUnparsed: async (row: UnparsedRow) => { notes.push(row); } };
+    const r = await importMail(m2('Votre commande', 'Bonjour', 'u9', '2026-11-17', { hint: 'shein' }), 'u1', { ...deps, ...rec });
     assert.equal(r.status, 'unparsed');
     assert.equal(notes.length, 1);
     assert.equal(notes[0].user_id, 'u1');
-    assert.equal(notes[0].mail_fingerprint, mailFingerprint(mail(MAIL_NO_AMOUNT, 'm9')));
-    assert.ok((notes[0].missing ?? []).length > 0);
-    const ok = await importMail(mail(MAIL_INLINE, 'm10'), 'u1', { insertPending: fakeInsert, recordUnparsed: async (row) => { notes.push(row); } });
-    assert.notEqual(ok.status, 'unparsed');
-    assert.equal(notes.length, 1);
-    const panne = await importMail(mail(MAIL_NO_AMOUNT, 'm11'), 'u1', { insertPending: fakeInsert, recordUnparsed: async () => { throw new Error('table absente'); } });
+    assert.equal(notes[0].mail_fingerprint, mailFingerprint(m2('Votre commande', 'Bonjour', 'u9', '2026-11-17', { hint: 'shein' })));
+    const bad = await importMail(m2(SHEIN_SUBJECT, 'Merci pour votre commande', 'u10', '2026-11-17', { from: 'noreply@sheinnotice.com' }), 'u1', { ...deps, ...rec });
+    assert.equal(bad.status, 'unparsed');
+    assert.ok((notes[1].missing ?? []).length > 0);
+    const panne = await importMail(m2('Votre commande', 'Bonjour', 'u11', '2026-11-17', { hint: 'shein' }), 'u1', { ...deps, recordUnparsed: async () => { throw new Error('table absente'); } });
     assert.equal(panne.status, 'unparsed');
+  });
+
+  // ══ T-034.2 : import Shein seul ══
+  // Base espion : toute écriture ou tout appel Gemini est compté.
+  const spy = { writes: 0, gemini: 0, unparsed: 0 };
+  const spyDeps: ImportDeps = {
+    insertPending: async () => { spy.writes++; return 'inserted'; },
+    insertSoldNotice: async () => { spy.writes++; return { status: 'inserted', id: 'x' }; },
+    setPendingDate: async () => { spy.writes++; return true; },
+    markNoticeUsed: async () => { spy.writes++; },
+    listSoldNotices: async () => [], listApproxPending: async () => [],
+    recordUnparsed: async () => { spy.unparsed++; },
+    aiFallback: async () => { spy.gemini++; return { article: 'Pull', size: 'L', color: '', price: 15, date: '2026-07-19', transactionNumber: '' }; },
+  };
+  await test('T-034.2 Vinted « transaction finalisée » → ignored, 0 écriture, 0 appel Gemini, rien à vérifier', async () => {
+    for (const [body, id] of [[MAIL_INLINE, 'i1'], [MAIL_LINES, 'i2'], [REAL_FINALIZED, 'i3'], [MAIL_NO_AMOUNT, 'i4']] as const) {
+      const r = await importMail(mail(body, id), 'u1', spyDeps);
+      assert.ok(r.status === 'ignored' && r.reason === VINTED_IGNORED_REASON, JSON.stringify(r));
+    }
+    assert.deepEqual(spy, { writes: 0, gemini: 0, unparsed: 0 });
+  });
+  await test("T-034.2 Vinted « article vendu » → ignored, 0 écriture (ni avis ni vente en attente)", async () => {
+    for (const [s, b, id] of [[SOLD_SUBJECT, SOLD_BODY, 'j1'], [SOLD_SUBJECT, soldReal('Robe Talya bleue', '| Robe Talya bleue 18,00 € |'), 'j2'], ["Ton article s'est vendu", MAIL_SOLD, 'j3']] as const) {
+      const r = await importMail(m2(s, b, id, '2026-11-08'), 'u1', spyDeps);
+      assert.ok(r.status === 'ignored' && r.reason === VINTED_IGNORED_REASON, JSON.stringify(r));
+    }
+    // Trouvé par une recherche Vinted mais illisible : ignoré aussi (pas dans « Mails à vérifier »).
+    const h = await importMail(m2('Vinted', 'texte illisible', 'j4', '2026-11-08', { hint: 'vendu' }), 'u1', spyDeps);
+    assert.equal(h.status, 'ignored');
+    assert.deepEqual(spy, { writes: 0, gemini: 0, unparsed: 0 });
+  });
+  await test('T-034.2 chemin Shein inchangé (insertion, photo, anti-doublon)', async () => {
+    const before = db.purchases.length;
+    const r = await importMail(m2(SHEIN_SUBJECT, SHEIN_TWO, 'k1', '2026-12-04', { html: SHEIN_HTML_TWO }), 'u2', deps);
+    assert.ok(r.status === 'inserted' && 'kind' in r && r.kind === 'shein_order' && r.inserted === 3, JSON.stringify(r));
+    assert.equal(db.purchases.length, before + 3);
+    assert.equal(db.purchases[before].photo_url, 'https://img.ltwebstatic.com/v4/j/pi/robe.jpg');
+    assert.equal((await importMail(m2(SHEIN_SUBJECT, SHEIN_TWO, 'k2', '2026-12-04'), 'u2', deps)).status, 'duplicate');
+  });
+  await test('T-034.2 B1 : texte alternatif exact avant préfixe (« Robe longue noire » / « … fendue », deux ordres)', () => {
+    const a = '<img alt="SHEIN Robe longue noire" src="//img.ltwebstatic.com/v4/j/pi/a.jpg">';
+    const b = '<img alt="SHEIN Robe longue noire fendue" src="//img.ltwebstatic.com/v4/j/pi/b.jpg">';
+    for (const html of [a + b, b + a]) {
+      assert.equal(sheinPhotoByAlt(html, 'SHEIN Robe longue noire fendue'), 'https://img.ltwebstatic.com/v4/j/pi/b.jpg');
+      assert.equal(sheinPhotoByAlt(html, 'SHEIN Robe longue noire'), 'https://img.ltwebstatic.com/v4/j/pi/a.jpg');
+    }
+    // Sans égalité exacte, le préfixe sert toujours de repli (alt tronqué par Shein).
+    assert.equal(sheinPhotoByAlt(b, 'SHEIN Robe longue noire fendue dos nu'), 'https://img.ltwebstatic.com/v4/j/pi/b.jpg');
+  });
+  await test('T-034.2 B2 : URL http: enregistrée en https:', async () => {
+    assert.deepEqual(sheinPhotos('<img src="http://img.ltwebstatic.com/v4/j/pi/a.jpg">'), ['https://img.ltwebstatic.com/v4/j/pi/a.jpg']);
+    assert.equal(sheinPhotoByAlt('<img alt="SHEIN Robe longue noire" src="http://img.ltwebstatic.com/v4/j/pi/a.jpg">', 'SHEIN Robe longue noire'), 'https://img.ltwebstatic.com/v4/j/pi/a.jpg');
+    const html = SHEIN_HTML_TWO.replace(/(?:https?:)?\/\/img\.ltwebstatic\.com/g, 'http://img.ltwebstatic.com');
+    assert.ok(html.includes('http://img.ltwebstatic.com'), 'le HTML du test contient bien des URL http:');
+    const before = db.purchases.length;
+    await importMail(m2(SHEIN_SUBJECT, SHEIN_TWO, 'k3', '2026-12-04', { html }), 'u3', deps);
+    const rows = db.purchases.slice(before);
+    assert.ok(rows.length === 3 && rows.every((x) => !!x.photo_url && x.photo_url.startsWith('https://')), JSON.stringify(rows.map((x) => x.photo_url)));
+  });
+  await test("T-034.2 B3 : échec du rattrapage photo journalisé, l'import continue (pas d'erreur)", async () => {
+    let calls = 0;
+    const errors: unknown[] = [];
+    const orig = console.error;
+    console.error = (...a: unknown[]) => { errors.push(a); };
+    try {
+      const r = await importMail(m2(SHEIN_SUBJECT, SHEIN_TWO, 'k4', '2026-12-06', { html: SHEIN_HTML_TWO }), 'u1', {
+        ...deps, fillPurchasePhoto: async () => { calls++; throw new Error('colonne photo_url absente'); },
+      });
+      assert.ok(r.status === 'duplicate' && 'kind' in r && r.kind === 'shein_order' && r.duplicates === 3, JSON.stringify(r));
+    } finally { console.error = orig; }
+    assert.equal(calls, 3, 'chaque unité est tentée malgré l’échec de la première');
+    assert.equal(errors.length, 3, 'chaque échec est journalisé');
   });
   await test('file de révision : stock de même taille seulement, tailles normalisées', () => {
     assert.equal(sizeKey('M / 38 / 10'), 'M');

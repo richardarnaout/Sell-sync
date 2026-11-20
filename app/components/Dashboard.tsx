@@ -3,7 +3,7 @@
 import { TrendingUp, Package, Euro, Percent, Tag } from 'lucide-react';
 import { THRESHOLD_SALES, THRESHOLD_REVENUE } from '../lib/dashboard';
 import type { SalesStats } from '../lib/useSalesStats';
-import { StatCard } from './ui';
+import { StatCard, Card } from './ui';
 
 // Cartes du haut, stock immobilisé, seuils annuels et récap par mois.
 export default function Dashboard({ st }: { st: SalesStats }) {
@@ -26,12 +26,12 @@ export default function Dashboard({ st }: { st: SalesStats }) {
 
       {/* ── T-022.4 : stock immobilisé, compteur annuel, récap par mois ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
-        <div className="p-4 rounded-2xl" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' }}>
+        <Card className="p-4">
           <p className="text-xs uppercase tracking-wide text-white/55 font-semibold">Stock immobilisé</p>
           <p className="text-2xl font-bold text-white mt-1">{stockImmo.total.toFixed(2).replace('.',',')} €</p>
           <p className="text-xs text-white/60 mt-1">{stockImmo.count} article{stockImmo.count > 1 ? 's' : ''} en stock, non vendu{stockImmo.count > 1 ? 's' : ''} (prix d'achat)</p>
-        </div>
-        <div className="p-4 rounded-2xl" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' }}>
+        </Card>
+        <Card className="p-4">
           <p className="text-xs uppercase tracking-wide text-white/55 font-semibold">Seuils de déclaration {yearCnt.year} (indicateur)</p>
           {[
             { label:`${yearCnt.count} / ${THRESHOLD_SALES} ventes`, pct: yearCnt.salesPct },
@@ -45,20 +45,20 @@ export default function Dashboard({ st }: { st: SalesStats }) {
             </div>
           ))}
           <p className="text-xs text-white/55 mt-2">Repère par année civile, sans valeur de conseil fiscal.</p>
-        </div>
+        </Card>
       </div>
       {stats.perso.count > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          <div className="p-4 rounded-2xl" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' }}>
+          <Card className="p-4">
             <p className="text-xs uppercase tracking-wide text-white/55 font-semibold">Revente (achats Shein)</p>
             <p className="text-sm text-white/80 mt-1">CA {stats.resale.revenue.toFixed(2).replace('.',',')} € · bénéfice <span className="font-bold">{stats.resale.profit.toFixed(2).replace('.',',')} €</span> · marge {stats.resale.margin.toFixed(1)} %</p>
             <p className="text-xs text-white/60 mt-1">{stats.resale.count} vente{stats.resale.count > 1 ? 's' : ''}</p>
-          </div>
-          <div className="p-4 rounded-2xl" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' }}>
+          </Card>
+          <Card className="p-4">
             <p className="text-xs uppercase tracking-wide text-white/55 font-semibold">Ventes perso</p>
             <p className="text-sm text-white/80 mt-1">CA {stats.perso.revenue.toFixed(2).replace('.',',')} €</p>
             <p className="text-xs text-white/60 mt-1">{stats.perso.count} vente{stats.perso.count > 1 ? 's' : ''}, sans marge</p>
-          </div>
+          </Card>
         </div>
       )}
       {stats.missing > 0 && (
@@ -67,7 +67,7 @@ export default function Dashboard({ st }: { st: SalesStats }) {
         </p>
       )}
       {monthRows.length > 0 && (
-        <div className="mb-6 sm:mb-8 rounded-2xl overflow-hidden" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' }}>
+        <Card className="mb-6 sm:mb-8 overflow-hidden">
           <div className="grid grid-cols-5 gap-2 px-3 sm:px-4 py-2 text-xs sm:text-xs uppercase tracking-wide text-white/55 font-semibold">
             <span>Mois</span><span className="text-right">Ventes</span><span className="text-right">CA</span><span className="text-right">Bénéf.</span><span className="text-right">Marge</span>
           </div>
@@ -80,7 +80,7 @@ export default function Dashboard({ st }: { st: SalesStats }) {
               <span className="text-right">{m.margin.toFixed(0)} %{m.missing > 0 && <span title="prix d'achat manquant" className="text-amber-300"> *</span>}</span>
             </div>
           ))}
-        </div>
+        </Card>
       )}
     </>
   );

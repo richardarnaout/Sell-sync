@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Jetons de design (T-034.4) : un seul système, thème indigo/violet conservé ── */
+:root {
+  --bg: #0b0c14; --surface: rgba(255,255,255,0.03); --border: rgba(255,255,255,0.08);
+  --accent: #6366f1; --accent-2: #8b5cf6; --grad: linear-gradient(135deg,#6366f1,#8b5cf6);
+  --ok: #6ee7b7; --warn: #fcd34d; --bad: #fca5a5;
+  --r-sm: 12px; --r-md: 16px; --r-lg: 24px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px;
+  --shadow: 0 8px 24px rgba(99,102,241,0.35);
+  --tap: 44px;
+}
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:var(--tap);
+  padding:0 var(--sp-4); border-radius:var(--r-sm); font-weight:700; font-size:14px; color:#fff; }
+.btn-primary { background: var(--grad); box-shadow: var(--shadow); }
+.btn-ghost { background: var(--surface); border:1px solid var(--border); color:rgba(255,255,255,0.8); }
+/* Contenu centré et lisible aux grandes largeurs */
+main { max-width: 1100px; }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
@@ -13,6 +30,7 @@ html, body {
   max-width: 100%;
 }
 body {
+  min-width: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -98,6 +116,7 @@ body {
 
 /* ── Input ── */
 .field-input {
+  min-height: 44px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
   color: white;
@@ -113,12 +132,13 @@ body {
 /* ── Mobile : champs 16 px (pas de zoom auto iOS), cibles tactiles ≥ 44 px, pas de débordement ── */
 input, select, textarea, button { font-family: inherit; }
 img, svg, canvas, video { max-width: 100%; }
-@media (max-width: 767px), (pointer: coarse) {
+/* Boutons ≥ 44 px à toutes les largeurs (T-034.4) */
+button { min-height: 44px; }
+@media (max-width: 1023px), (pointer: coarse) {
   input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea {
     font-size: 16px !important;
     min-height: 44px;
   }
-  button { min-height: 44px; }
   input[type=checkbox], input[type=radio] { width: 22px; height: 22px; }
 }
 @media (hover: none) { button { -webkit-tap-highlight-color: transparent; } }

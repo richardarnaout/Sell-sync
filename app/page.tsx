@@ -14,7 +14,7 @@ import Analyse from './components/Analyse';
 import SaleForm from './components/SaleForm';
 import DeleteConfirm from './components/DeleteConfirm';
 import SettingsModal, { useSettings } from './components/SettingsModal';
-import { Purchase, PendingSale, dbToPurchase, dbToPending } from './lib/stock';
+import { Purchase, dbToPurchase } from './lib/stock';
 import { Sale, Template, today, saleToDb, dbToSale, dbToTemplate, parseSalesCSV, salesToCSV } from './lib/sales';
 import { useSalesStats } from './lib/useSalesStats';
 import { useSaleForm } from './lib/useSaleForm';
@@ -28,7 +28,6 @@ export default function VintedAI() {
   const [salesFilter, setSalesFilter] = useState<SalesFilter>('tout');
   const [stockFilter, setStockFilter] = useState<StockFilter>('stock');
   const [purchases, setPurchases]   = useState<Purchase[]>([]);
-  const [pendingSales, setPendingSales] = useState<PendingSale[]>([]);
   const [deleteId, setDeleteId]   = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [goalMonth, setGoalMonth]         = useState<string>('');
@@ -52,18 +51,17 @@ export default function VintedAI() {
   }, []);
 
   const loadData = useCallback(async () => {
-    if (!user) { setSales([]); setTemplates([]); setPurchases([]); setPendingSales([]); setMounted(false); return; }
-    const [{ data: salesData }, { data: templatesData }, purchasesRes, pendingRes] = await Promise.all([
+    if (!user) { setSales([]); setTemplates([]); setPurchases([]); setMounted(false); return; }
+    // T-034.3 : pending_sales n'est plus lu (plus de liaison) ; la table reste intacte en base.
+    const [{ data: salesData }, { data: templatesData }, purchasesRes] = await Promise.all([
       supabase.from('sales').select('*').eq('user_id', user.id).order('date', { ascending: false }),
       supabase.from('templates').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
       // Les tables auto-import peuvent ne pas exister encore (migration SQL non passée) → on avale l'erreur.
       supabase.from('purchases').select('*').eq('user_id', user.id).order('date', { ascending: false }),
-      supabase.from('pending_sales').select('*').eq('user_id', user.id).order('date', { ascending: false }),
     ]);
     setSales(salesData ? salesData.map(dbToSale) : []);
     setTemplates(templatesData ? templatesData.map(dbToTemplate) : []);
     setPurchases(purchasesRes.data ? purchasesRes.data.map(dbToPurchase) : []);
-    setPendingSales(pendingRes.data ? pendingRes.data.map(dbToPending) : []);
     setMounted(true);
   }, [user?.id]);
 
@@ -124,17 +122,16 @@ export default function VintedAI() {
           style={{ background:'radial-gradient(circle, #8b5cf6 0%, transparent 70%)', filter:'blur(40px)' }} />
       </div>
 
-      <AppNav tab={tab} setTab={setTab} openForm={openForm} onOpenSettings={settings.open}
-        toLink={pendingSales.filter(p => p.status === 'en_attente').length} />
+      <AppNav tab={tab} setTab={setTab} openForm={openForm} onOpenSettings={settings.open} />
       <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={importCSV} />
 
-      <div className="relative w-full px-4 sm:px-6 lg:px-10 pb-36 md:pb-16 md:pl-[15.5rem] lg:pl-[16.5rem] md:pt-6">
+      <div className="relative w-full px-4 sm:px-6 lg:px-10 pb-44 md:pb-16 md:pl-[15.5rem] lg:pl-[16.5rem] md:pt-6">
+      <main className="mx-auto w-full max-w-[1280px] 2xl:max-w-[1440px]">
 
         {/* ════════════════ AUJOURD'HUI (accueil) ════════════════ */}
         {tab === 'aujourdhui' && (
-          <TodayView userId={user.id} sales={sales} purchases={purchases} pendingSales={pendingSales} st={st}
-            onChange={loadData} openEdit={openEdit}
-            goStock={() => { setStockFilter('vieux'); setTab('stock'); }} />
+          <TodayView userId={user.id} sales={sales} purchases={purchases} st={st} openEdit={openEdit}
+            goStock={(f: StockFilter = 'vieux') => { setStockFilter(f); setTab('stock'); }} />
         )}
 
         {/* ════════════════ VENTES ════════════════ */}
@@ -147,7 +144,7 @@ export default function VintedAI() {
         {/* ════════════════ STOCK ════════════════ */}
         {tab === 'stock' && (
           <div className="animate-fade-in">
-            <StockView userId={user.id} purchases={purchases} onChange={loadData} filter={stockFilter} setFilter={setStockFilter} />
+            <StockView userId={user.id} purchases={purchases} sales={sales} onChange={loadData} filter={stockFilter} setFilter={setStockFilter} />
           </div>
         )}
 
@@ -157,13 +154,14 @@ export default function VintedAI() {
             selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth}
             onEmptyAdd={() => { setTab('ventes'); openForm(); }} />
         )}
+      </main>
       </div>
 
       {/* ── Form sheet ── */}
       {sf.showForm && <SaleForm f={sf} />}
 
       {/* ── Delete confirm ── */}
-      {deleteId && <DeleteConfirm deleteId={deleteId} setDeleteId={setDeleteId} sales={sales} setSales={setSales} />}
+      {deleteId && <DeleteConfirm deleteId={deleteId} setDeleteId={setDeleteId} sales={sales} setSales={setSales} onDeleted={loadData} />}
 
       {/* ── Settings modal ── */}
       {settings.showSettings && <SettingsModal s={settings} canExport={sales.length > 0} onExportCSV={exportCSV}

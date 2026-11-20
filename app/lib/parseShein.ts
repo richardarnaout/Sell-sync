@@ -65,11 +65,49 @@ export function isSheinOrderMail(subject: string, body: string, from = ''): bool
   return sheinish && /confirmation de (votre|ta) commande/.test(f) && (/sku\s*:/.test(f) || fromShein);
 }
 
+/** Entités HTML utiles aux URL et aux textes alternatifs (&amp; &quot; &#39; &#47; &#x2F;…). */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+}
+
+/**
+ * Photo produit Shein : CDN img.ltwebstatic.com, chemin « /pi/ » (v4/j/pi/…) OU « images3_pi/ » (ancien
+ * format, toujours servi par Shein). T-033 : seul « /pi/ » était reconnu → photo_url vide → carrés.
+ */
+const PHOTO_RE = /(?:https?:)?\/\/img\.ltwebstatic\.com\/[^"'\s)<>&]*[/_]pi\/[^"'\s)<>]+/g;
+// T-034.2 (B2) : « //… » et « http:// » deviennent « https:// » (pas de contenu mixte, lisible par l'outil d'annonce).
+const absolute = (u: string) => (u.startsWith('//') ? `https:${u}` : u.replace(/^http:\/\//i, 'https://'));
+
 /** URLs des photos produits dans le HTML, dans l'ordre, sans doublons. */
 export function sheinPhotos(html: string): string[] {
-  const urls = (html.replace(/&amp;/g, '&').match(/(?:https?:)?\/\/img\.ltwebstatic\.com\/[^"'\s)<>]*\/pi\/[^"'\s)<>]+/g) ?? [])
-    .map((u) => (u.startsWith('//') ? `https:${u}` : u));
+  const urls = (decodeEntities(html).match(PHOTO_RE) ?? []).map(absolute);
   return Array.from(new Set(urls));
+}
+
+/**
+ * Photo d'un article par son texte alternatif : Shein met le nom de l'article dans l'« alt » de sa photo
+ * (« [image: SHEIN Manteau…] » du texte brut). Plus sûr que l'ordre des images (bannières, suggestions).
+ */
+export function sheinPhotoByAlt(html: string, name: string): string {
+  const want = fold(name).replace(/\s+/g, ' ').trim();
+  if (want.length < 8) return '';
+  // T-034.2 (B1) : égalité exacte du texte alternatif d'abord, préfixe ensuite. Sinon « Robe longue noire fendue »
+  // pouvait prendre la photo de « Robe longue noire » (variante voisine) selon l'ordre des images.
+  let prefixMatch = '';
+  for (const tag of html.match(/<img\b[^>]*>/gi) ?? []) {
+    const attr = (n: string) => decodeEntities(tag.match(new RegExp(`\\b${n}\\s*=\\s*("([^"]*)"|'([^']*)')`, 'i'))?.slice(2).find((v) => v !== undefined) ?? '');
+    const alt = fold(attr('alt')).replace(/\s+/g, ' ').trim();
+    if (alt.length < 8 || !(alt === want || want.startsWith(alt) || alt.startsWith(want))) continue;
+    const src = (attr('src').match(PHOTO_RE) ?? [])[0];
+    if (!src) continue;
+    if (alt === want) return absolute(src);
+    if (!prefixMatch) prefixMatch = absolute(src);
+  }
+  return prefixMatch;
 }
 
 /** « SHEIN EZwear Manteau… » → modèle « SHEIN EZwear » ; « SHEIN Manteau… » → « SHEIN ». */
@@ -129,7 +167,8 @@ export function parseSheinOrder(subject: string, body: string, receivedDate: str
     const { model, article } = splitModel(name);
     return {
       name, model, article, sku: hit[1], color, size, quantity: qty,
-      unitPrice: Number.isFinite(unitPrice) ? unitPrice : NaN, photoUrl: photos[k] ?? '',
+      unitPrice: Number.isFinite(unitPrice) ? unitPrice : NaN,
+      photoUrl: (html && sheinPhotoByAlt(html, name)) || (photos[k] ?? ''),
     };
   });
 

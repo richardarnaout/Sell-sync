@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Field } from './ui';
 import { X, AlertCircle, CheckCircle, Upload, Download, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
@@ -40,33 +41,25 @@ export default function SettingsModal({ s, onImportCSV, onExportCSV, canExport }
 
         <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color:'rgba(255,255,255,0.6)' }}>Données</p>
         <div className="flex gap-2 mb-6">
-          <button onClick={onImportCSV}
-            className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl text-xs font-semibold text-white/70 hover:text-white"
-            style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
-            <Upload className="w-3.5 h-3.5" />Importer CSV
-          </button>
+          <Button onClick={onImportCSV} className="flex-1 text-xs"><Upload className="w-3.5 h-3.5" />Importer CSV</Button>
           {canExport && (
-            <button onClick={onExportCSV}
-              className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl text-xs font-semibold text-white/70 hover:text-white"
-              style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
-              <Download className="w-3.5 h-3.5" />Exporter CSV
-            </button>
+            <Button onClick={onExportCSV} className="flex-1 text-xs"><Download className="w-3.5 h-3.5" />Exporter CSV</Button>
           )}
         </div>
 
         <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color:'rgba(255,255,255,0.6)' }}>Changer le mot de passe</p>
 
         <div className="space-y-3">
-          <input
+          <Field label="Nouveau mot de passe"><input
             type="password" placeholder="Nouveau mot de passe" value={newPassword}
             onChange={e => setNewPassword(e.target.value)}
             className="field-input w-full rounded-xl px-4 py-3 text-sm"
-          />
-          <input
+          /></Field>
+          <Field label="Confirmer le mot de passe"><input
             type="password" placeholder="Confirmer le mot de passe" value={confirmPassword}
             onChange={e => setConfirmPassword(e.target.value)}
             className="field-input w-full rounded-xl px-4 py-3 text-sm"
-          />
+          /></Field>
         </div>
 
         {settingsError && (
@@ -82,7 +75,7 @@ export default function SettingsModal({ s, onImportCSV, onExportCSV, canExport }
           </div>
         )}
 
-        <button
+        <Button variant="primary"
           onClick={async () => {
             if (!newPassword) { setSettingsError('Entre un nouveau mot de passe.'); return; }
             if (newPassword.length < 6) { setSettingsError('Minimum 6 caractères.'); return; }
@@ -94,18 +87,13 @@ export default function SettingsModal({ s, onImportCSV, onExportCSV, canExport }
             else { setSettingsSuccess(true); setNewPassword(''); setConfirmPassword(''); }
           }}
           disabled={settingsLoading}
-          className="w-full mt-4 py-3.5 rounded-xl font-bold text-sm text-white transition active:scale-[0.97] disabled:opacity-60"
-          style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', boxShadow:'0 4px 18px rgba(99,102,241,0.4)' }}>
+          className="w-full mt-4">
           {settingsLoading
             ? <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             : 'Mettre à jour'}
-        </button>
+        </Button>
 
-        <button onClick={() => supabase.auth.signOut()}
-          className="w-full mt-3 flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl text-sm font-semibold text-white/50 hover:text-white/80"
-          style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
-          <LogOut className="w-4 h-4" />Se déconnecter
-        </button>
+        <Button onClick={() => supabase.auth.signOut()} className="w-full mt-3 text-white/60"><LogOut className="w-4 h-4" />Se déconnecter</Button>
       </div>
     </div>
   );

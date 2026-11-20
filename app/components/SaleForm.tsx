@@ -3,7 +3,7 @@
 import { Plus, Download, Upload, X, AlertCircle, Pencil, Tag, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { CATEGORIES, SIZES, CAT_COLORS, fmt } from '../lib/sales';
 import type { SaleFormApi } from '../lib/useSaleForm';
-import { FormField } from './ui';
+import { Field, Thumb } from './ui';
 
 // Feuille « Nouvelle vente / Modifier la vente » avec les modèles enregistrés.
 export default function SaleForm({ f }: { f: SaleFormApi }) {
@@ -93,9 +93,7 @@ export default function SaleForm({ f }: { f: SaleFormApi }) {
                           <div key={t.id} className="flex items-center gap-1 pr-1.5 py-1.5 rounded-xl text-xs font-semibold transition-all"
                             style={{ background:'rgba(99,102,241,0.12)', border:'1px solid rgba(99,102,241,0.25)', color:'#a5b4fc', paddingLeft: t.image ? '4px' : '12px' }}>
                             <button onClick={() => { applyTemplate(t); setTemplateSearch(''); setTemplatesOpen(false); }} className="flex items-center gap-2 hover:text-white transition">
-                              {t.image && (
-                                <img src={t.image} className="w-7 h-7 rounded-lg object-cover shrink-0" />
-                              )}
+                              {t.image && <Thumb src={t.image} name={t.name} size="sm" />}
                               <span>{t.name}</span>
                               {t.purchasePrice && <span className="opacity-50 font-normal">{t.purchasePrice}€</span>}
                             </button>
@@ -132,26 +130,26 @@ export default function SaleForm({ f }: { f: SaleFormApi }) {
         )}
 
         <div className="space-y-5">
-          <FormField label="Article *">
+          <Field label="Article *">
             <input type="text" placeholder="ex : Veste Zara noire" value={form.article}
               onChange={e => setForm({...form, article:e.target.value})}
               className="field-input w-full rounded-xl px-4 py-3 text-sm" />
-          </FormField>
+          </Field>
 
-          <FormField label="Lien produit (optionnel)">
+          <Field label="Lien produit (optionnel)">
             <div className="relative">
               <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/55" />
               <input type="url" placeholder="https://..." value={form.productUrl}
                 onChange={e => setForm({...form, productUrl:e.target.value})}
                 className="field-input w-full rounded-xl pl-9 pr-3 py-3 text-sm" />
             </div>
-          </FormField>
+          </Field>
 
-          <FormField label="Catégorie">
+          <Field label="Catégorie">
             <div className="flex flex-wrap gap-2">
               {CATEGORIES.map(c => (
                 <button key={c} type="button" onClick={() => setForm({...form, category:c})}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all active:scale-95"
+                  className="px-3 py-1.5 min-w-[44px] rounded-xl text-xs font-semibold transition-all active:scale-95"
                   style={form.category === c
                     ? { background:`${CAT_COLORS[c]}33`, color: CAT_COLORS[c], border:`1px solid ${CAT_COLORS[c]}66` }
                     : { background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.6)', border:'1px solid rgba(255,255,255,0.08)' }}>
@@ -159,13 +157,13 @@ export default function SaleForm({ f }: { f: SaleFormApi }) {
                 </button>
               ))}
             </div>
-          </FormField>
+          </Field>
 
-          <FormField label="Taille">
+          <Field label="Taille">
             <div className="flex flex-wrap gap-2">
               {SIZES.map(s => (
                 <button key={s} type="button" onClick={() => setForm({...form, size: form.size === s ? '' : s})}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all active:scale-95"
+                  className="px-3 py-1.5 min-w-[44px] rounded-xl text-xs font-semibold transition-all active:scale-95"
                   style={form.size === s
                     ? { background:'rgba(99,102,241,0.2)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.4)' }
                     : { background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.6)', border:'1px solid rgba(255,255,255,0.08)' }}>
@@ -173,26 +171,26 @@ export default function SaleForm({ f }: { f: SaleFormApi }) {
                 </button>
               ))}
             </div>
-          </FormField>
+          </Field>
 
-          <FormField label="Date de vente">
+          <Field label="Date de vente">
             <input type="date" value={form.date}
               onChange={e => setForm({...form, date:e.target.value})}
               className="field-input w-full rounded-xl px-4 py-3 text-sm" />
-          </FormField>
+          </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Prix de vente * (€)">
+            <Field label="Prix de vente * (€)">
               <input type="number" min="0" step="0.01" placeholder="25,00"
                 value={form.salePrice} onChange={e => setForm({...form, salePrice:e.target.value})}
                 className="field-input w-full rounded-xl px-4 py-3 text-sm" />
-            </FormField>
-            <FormField label="Prix d'achat (€)">
+            </Field>
+            <Field label="Prix d'achat (€)">
               <input type="number" min="0" step="0.01" placeholder={form.isPersonal ? 'Sans objet' : '5,00'}
                 disabled={form.isPersonal}
                 value={form.isPersonal ? '' : form.purchasePrice} onChange={e => setForm({...form, purchasePrice:e.target.value})}
                 className="field-input w-full rounded-xl px-4 py-3 text-sm disabled:opacity-40" />
-            </FormField>
+            </Field>
           </div>
 
           <label className="flex items-center gap-3 min-h-[44px] cursor-pointer text-sm text-white/70">
@@ -203,16 +201,16 @@ export default function SaleForm({ f }: { f: SaleFormApi }) {
           </label>
 
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Frais de port (€)">
+            <Field label="Frais de port (€)">
               <input type="number" min="0" step="0.01" placeholder="3,00"
                 value={form.shippingCost} onChange={e => setForm({...form, shippingCost:e.target.value})}
                 className="field-input w-full rounded-xl px-4 py-3 text-sm" />
-            </FormField>
-            <FormField label="Booster Vinted (€)">
+            </Field>
+            <Field label="Booster Vinted (€)">
               <input type="number" min="0" step="0.01" placeholder="0,00"
                 value={form.boosterCost} onChange={e => setForm({...form, boosterCost:e.target.value})}
                 className="field-input w-full rounded-xl px-4 py-3 text-sm" />
-            </FormField>
+            </Field>
           </div>
 
           {form.salePrice && (
@@ -247,7 +245,7 @@ export default function SaleForm({ f }: { f: SaleFormApi }) {
                     <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleTemplateImage} />
                     {templateImage ? (
                       <div className="flex items-center gap-2">
-                        <img src={templateImage} className="w-10 h-10 rounded-xl object-cover" style={{ border:'1px solid rgba(99,102,241,0.3)' }} />
+                        <Thumb src={templateImage} name={templateName} size="md" />
                         <button type="button" onClick={() => { setTemplateImage(''); if (imageInputRef.current) imageInputRef.current.value = ''; }}
                           className="text-xs text-white/55 hover:text-red-400 transition">Supprimer</button>
                       </div>

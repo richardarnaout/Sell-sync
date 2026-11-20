@@ -4,7 +4,7 @@ import { Sparkles } from 'lucide-react';
 import AiTools from './AiTools';
 import GoalCoach from './GoalCoach';
 import AnalyseCharts from './AnalyseCharts';
-import { EmptyState } from './ui';
+import { EmptyState, Card, Badge } from './ui';
 import Dashboard from './Dashboard';
 import MonthPills from './MonthPills';
 import { Sale, fmtPlain } from '../lib/sales';
@@ -26,7 +26,7 @@ export default function Analyse({ sales, st, goalMonth, setGoalMonth, onEmptyAdd
         <div className="space-y-4 sm:space-y-6">
           {/* Best month highlight */}
           {bestMonth && (
-            <div className="rounded-2xl px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+            <Card className="px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
               style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08))', border:'1px solid rgba(99,102,241,0.2)' }}>
               <div>
                 <p className="text-xs text-white/60 font-semibold uppercase tracking-wide mb-1">Meilleur mois</p>
@@ -37,7 +37,7 @@ export default function Analyse({ sales, st, goalMonth, setGoalMonth, onEmptyAdd
                 <p className="text-2xl sm:text-3xl font-bold text-indigo-400">+{bestMonth[1].profit.toFixed(2).replace('.',',')} €</p>
                 <p className="text-xs text-white/55 mt-1">CA {fmtPlain(bestMonth[1].revenue)}</p>
               </div>
-            </div>
+            </Card>
           )}
 
           {/* ── Objectif de vente (coach) ── */}
@@ -49,10 +49,7 @@ export default function Analyse({ sales, st, goalMonth, setGoalMonth, onEmptyAdd
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="w-4 h-4 text-indigo-400" />
                 <p className="text-sm font-bold text-white">Suggestions</p>
-                <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                  style={{ background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.2)' }}>
-                  basées sur tes données
-                </span>
+                <Badge color="#a5b4fc">basées sur tes données</Badge>
               </div>
               <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                 {suggestions.map((s, i) => {
@@ -63,14 +60,14 @@ export default function Analyse({ sales, st, goalMonth, setGoalMonth, onEmptyAdd
                     warning:{ bg:'rgba(245,158,11,0.08)',  border:'rgba(245,158,11,0.25)', label:'#fcd34d', dot:'#f59e0b' },
                   }[s.type];
                   return (
-                    <div key={i} className="shrink-0 w-64 rounded-2xl p-4"
+                    <Card key={i} className="shrink-0 w-64 p-4"
                       style={{ background:c.bg, border:`1px solid ${c.border}` }}>
                       <div className="flex items-center gap-2 mb-2">
                         <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background:c.dot }} />
                         <p className="text-xs font-bold leading-tight" style={{ color:c.label }}>{s.title}</p>
                       </div>
                       <p className="text-xs text-white/50 leading-relaxed">{s.body}</p>
-                    </div>
+                    </Card>
                   );
                 })}
               </div>

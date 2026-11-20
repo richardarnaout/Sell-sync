@@ -1,5 +1,5 @@
-// ── Auto-import : stock (achats Shein) + ventes détectées (Vinted finalisées) ──
-// Types, mapping DB et logique d'appariement.
+// ── Stock (achats Shein) : types, mapping DB, lien Shein, ancienneté ──
+// PendingSale / dbToPending / sameSizeStock : ancienne liaison (T-021 à T-031), plus utilisés par l'interface depuis T-034.3.
 
 export interface Purchase {
   id: string;
@@ -65,21 +65,8 @@ export function dbToPending(r: any): PendingSale {
   };
 }
 
-// ── Validation atomique (T-022.7) : 1 seul appel RPC, 3 écritures en une transaction SQL ──
-// Prérequis : supabase/valider-vente.sql exécuté. saleId = clé d'idempotence (un clic = un id).
-export async function validerVente(
-  pendingId: string, purchaseId: string, article: string, productUrl?: string,
-  saleId: string = crypto.randomUUID(),
-): Promise<{ ok: boolean; deja_traite: boolean; sale_id: string }> {
-  // Import dynamique : le client exige des variables d'env., que les scripts de test n'ont pas.
-  const { supabase } = await import('./supabaseClient');
-  const { data, error } = await supabase.rpc('valider_vente', {
-    p_pending_id: pendingId, p_purchase_id: purchaseId, p_sale_id: saleId,
-    p_article: article, p_product_url: productUrl || null,
-  });
-  if (error) throw error;
-  return data as { ok: boolean; deja_traite: boolean; sale_id: string };
-}
+// T-034.3 : validerVente (RPC valider_vente) retirée de l'app avec la liaison ; la fonction SQL reste en base.
+// La vente d'un article par saisie du prix est dans sellArticle.ts.
 
 // ── Appariement vente → achat ──
 /** « M / 38 / 10 », « taille M », « m » → « M » : on compare la première taille écrite. */
@@ -94,24 +81,6 @@ export function sameSizeStock(sale: PendingSale, stock: Purchase[]): Purchase[] 
   return stock
     .filter((p) => p.status === 'en_stock' && sizeEq(p.size, sale.size))
     .sort((a, b) => b.date.localeCompare(a.date));
-}
-
-/** Candidats d'achat pour une vente : uniquement le stock en cours, même taille d'abord, plus récent ensuite. */
-export function rankCandidates(sale: PendingSale, stock: Purchase[]): Purchase[] {
-  return stock
-    .filter((p) => p.status === 'en_stock')
-    .sort((a, b) => {
-      const sa = sizeEq(a.size, sale.size) ? 0 : 1;
-      const sb = sizeEq(b.size, sale.size) ? 0 : 1;
-      if (sa !== sb) return sa - sb;
-      return b.date.localeCompare(a.date);
-    });
-}
-
-/** Achat pré-sélectionné : seulement s'il y a UN seul article en stock de la bonne taille (sinon on ne devine pas). */
-export function bestGuessId(sale: PendingSale, stock: Purchase[]): string {
-  const sameSize = stock.filter((p) => p.status === 'en_stock' && sizeEq(p.size, sale.size));
-  return sameSize.length === 1 ? sameSize[0].id : '';
 }
 
 // ── Lien Shein d'un article (T-024) ──

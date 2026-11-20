@@ -103,5 +103,6 @@ export function guessCategory(article: string): string {
   return rules.find(([, re]) => re.test(a))?.[0] ?? 'Autre';
 }
 
-/** Date du jour AAAA-MM-JJ (UTC) ; injectable pour les tests. */
-export const today = () => new Date().toISOString().slice(0, 10);
+/** Date du jour AAAA-MM-JJ (heure locale) ; injectable pour les tests. */
+export const today = (d: Date = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

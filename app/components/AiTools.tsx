@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { Button, Card } from './ui';
 import { Sparkles, Wand2, Tag, Copy, Check, Loader2, Euro, Moon } from 'lucide-react';
 
 // Forme minimale d'une vente (structurellement compatible avec l'app).
@@ -25,6 +26,11 @@ const inputCls =
   'focus:outline-none focus:border-indigo-400/60 placeholder:text-white/55';
 
 async function postJSON<T>(url: string, body: unknown): Promise<T> {
+  // T-034.1 : mode démo (hors production) = réponses fictives, aucun appel serveur ni IA.
+  // Condition en toutes lettres : éliminée du build de production (voir lib/demo/flag.ts).
+  if (process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_DEMO === '1') {
+    return (await import('../lib/demo/ai')).demoAi(url, body) as Promise<T>;
+  }
   // Coupe-circuit : évite une UI bloquée si la fonction serveur traîne (> maxDuration).
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 75000);
@@ -178,7 +184,7 @@ export function ListingButton({ purchaseId }: { purchaseId: string }) {
               {res.price && <PriceBox p={res.price} />}
             </>
           )}
-          {!loading && <button type="button" onClick={() => setOpen(false)} className="text-xs text-white/55 px-3">Fermer</button>}
+          {!loading && <Button type="button" onClick={() => setOpen(false)}>Fermer</Button>}
         </div>
       )}
     </>
@@ -231,17 +237,16 @@ export default function AiTools({ month, hasSales }: { month: string | null; has
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      <div className="card rounded-2xl p-4 sm:p-5">
+      <Card className="p-4 sm:p-5">
         <SectionTitle icon={<Sparkles className="w-4 h-4 text-indigo-400" />} title="Bilan du mois" badge="IA" />
         <p className="text-xs text-white/55 mb-4 -mt-2">
           Chiffres calculés sur tes ventes, commentaire en 5 lignes : meilleures et pires ventes, stock qui dort.
         </p>
-        <button type="button" onClick={runAnalyst} disabled={anLoading || !hasSales || !month}
-          className="inline-flex items-center gap-2 px-4 min-h-[44px] rounded-xl text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
-          style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+        <Button variant="primary" type="button" onClick={runAnalyst} disabled={anLoading || !hasSales || !month}
+          >
           {anLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
           {anLoading ? 'Analyse en cours…' : 'Faire le bilan'}
-        </button>
+        </Button>
         {!hasSales && <p className="text-xs text-white/55 mt-3">Ajoute quelques ventes pour activer le bilan.</p>}
         {anError && <p className="text-xs text-red-400 mt-3">{anError}</p>}
         {an && (
@@ -268,9 +273,9 @@ export default function AiTools({ month, hasSales }: { month: string | null; has
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
-      <div className="card rounded-2xl p-4 sm:p-5">
+      <Card className="p-4 sm:p-5">
         <SectionTitle icon={<Tag className="w-4 h-4 text-emerald-400" />} title="Prix conseillé" badge="d’après tes ventes" />
         <p className="text-xs text-white/55 mb-4 -mt-2">Médiane de tes ventes passées de même catégorie et taille.</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
@@ -284,15 +289,14 @@ export default function AiTools({ month, hasSales }: { month: string | null; has
           <input className={inputCls} type="number" inputMode="decimal" placeholder="Prix d'achat € (optionnel)"
             value={pForm.purchasePrice} onChange={(e) => setPForm({ ...pForm, purchasePrice: e.target.value })} />
         </div>
-        <button type="button" onClick={runPrice} disabled={pLoading}
-          className="inline-flex items-center gap-2 px-4 min-h-[44px] rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition"
-          style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
+        <Button variant="success" type="button" onClick={runPrice} disabled={pLoading}
+          >
           {pLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Euro className="w-4 h-4" />}
           {pLoading ? 'Calcul…' : 'Conseiller un prix'}
-        </button>
+        </Button>
         {pError && <p className="text-xs text-red-400 mt-3">{pError}</p>}
         {pResult && <div className="mt-4"><PriceBox p={pResult} /></div>}
-      </div>
+      </Card>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, Dispatch, SetStateAction } from 'react';
 import { supabase } from './supabaseClient';
 import { Sale, FormState, Template, emptyForm, today, saleToDb, templateToDb } from './sales';
+import { resizeImageFile } from './imageResize';
 
 // État et actions du formulaire de vente et des modèles (T-022.8 : sortis de page.tsx, comportement inchangé).
 // L'état vit dans la page (le hook y est appelé) : il survit à la fermeture du formulaire comme avant.
@@ -69,15 +70,21 @@ export function useSaleForm({ sales, setSales, templates, setTemplates, user, se
     setSavingTemplate(false);
     setTemplateName('');
     setTemplateImage('');
-    await supabase.from('templates').insert(templateToDb(t, user.id));
+    // T-034.3 (A5) : si la base refuse, on retire le modèle et on le dit (avant : vignette perdue au rechargement).
+    const { error } = await supabase.from('templates').insert(templateToDb(t, user.id));
+    if (error) {
+      setTemplates(prev => prev.filter(x => x.id !== t.id));
+      alert('Modèle non enregistré : ' + error.message + '. Réessaie (avec une photo plus légère si besoin).');
+    }
   };
 
-  const handleTemplateImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // T-034.3 (A5) : photo réduite dans le navigateur (≤ 1280 px, JPEG, ≤ 300 Ko) avant d'être gardée.
+  const handleTemplateImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => setTemplateImage(ev.target?.result as string);
-    reader.readAsDataURL(file);
+    try { setTemplateImage(await resizeImageFile(file)); }
+    catch (err) { alert(err instanceof Error ? err.message : 'Photo illisible.'); }
+    finally { e.target.value = ''; }
   };
 
   const deleteTemplate = async (id: string) => {

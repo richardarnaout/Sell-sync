@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Trash2, Pencil, ArrowUpRight, ArrowDownRight, ExternalLink } from 'lucide-react';
 import { Sale, today, CAT_COLORS, calcProfit, fmt, fmtPlain, parseDate } from '../lib/sales';
 import type { MonthEntry } from '../lib/stats';
-import { Pill, EmptyState } from './ui';
+import { Pill, EmptyState, Button, Card, Badge } from './ui';
 import MonthPills from './MonthPills';
 import { missingPurchase } from '../lib/dashboard';
 
@@ -54,11 +54,9 @@ export default function SalesList({ sales, byMonthDesc, selectedMonth, setSelect
 
       {persoErr && <p className="text-xs text-red-300 mb-3">{persoErr}</p>}
       {filter === 'manquant' && missingIds.length > 0 && (
-        <button onClick={() => { if (confirm(`Marquer ${missingIds.length} vente${missingIds.length > 1 ? 's' : ''} sans prix d'achat comme articles perso ?`)) setPersonal(missingIds, true); }}
-          className="mb-4 px-4 min-h-[44px] rounded-xl text-sm font-semibold text-indigo-200 hover:text-white transition"
-          style={{ background:'rgba(99,102,241,0.12)', border:'1px solid rgba(99,102,241,0.3)' }}>
+        <Button variant="primary" className="mb-4" onClick={() => { if (confirm(`Marquer ${missingIds.length} vente${missingIds.length > 1 ? 's' : ''} sans prix d'achat comme articles perso ?`)) setPersonal(missingIds, true); }}>
           Marquer les {missingIds.length} comme articles perso
-        </button>
+        </Button>
       )}
       {sales.length === 0 ? (
         <EmptyState onAdd={openForm} />
@@ -92,19 +90,19 @@ export default function SalesList({ sales, byMonthDesc, selectedMonth, setSelect
                     const isPos = p >= 0;
                     const margin = s.salePrice > 0 ? Math.min(Math.max((p / s.salePrice) * 100, 0), 100) : 0;
                     return (
-                      <div key={s.id}
-                        className="card rounded-2xl overflow-hidden animate-fade-slide-up"
+                      <Card key={s.id}
+                        className="overflow-hidden animate-fade-slide-up"
                         style={{ animationDelay:`${i * 40}ms`, animationFillMode:'both' }}>
-                        <div className="flex">
+                        <div className="flex min-w-0">
                           <div className="w-[3px] shrink-0"
                             style={{ background: isPos
                               ? `linear-gradient(180deg, ${CAT_COLORS[s.category] ?? '#6366f1'}, ${CAT_COLORS[s.category] ?? '#6366f1'}88)`
                               : 'linear-gradient(180deg,#f87171,#ef4444)' }} />
-                          <div className="flex-1 px-4 py-4">
+                          <div className="flex-1 min-w-0 px-3 sm:px-4 py-4">
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap min-w-0">
-                                  <p className="font-semibold text-white text-sm truncate min-w-0">{s.article}</p>
+                                  <p className="font-semibold text-white text-sm line-clamp-2 break-words min-w-0 basis-full sm:basis-auto">{s.article}</p>
                                   {s.productUrl && (
                                     <a href={s.productUrl} target="_blank" rel="noopener noreferrer"
                                       onClick={e => e.stopPropagation()}
@@ -113,21 +111,12 @@ export default function SalesList({ sales, byMonthDesc, selectedMonth, setSelect
                                       <ExternalLink className="w-3.5 h-3.5" />
                                     </a>
                                   )}
-                                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold shrink-0"
-                                    style={{ background:`${CAT_COLORS[s.category] ?? '#6366f1'}22`, color: CAT_COLORS[s.category] ?? '#818cf8', border:`1px solid ${CAT_COLORS[s.category] ?? '#6366f1'}44` }}>
-                                    {s.category}
-                                  </span>
+                                  <Badge color={CAT_COLORS[s.category] ?? '#818cf8'}>{s.category}</Badge>
                                   {s.isPersonal && (
-                                    <span className="text-xs px-2 py-0.5 rounded-full font-semibold shrink-0"
-                                      style={{ background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.65)', border:'1px solid rgba(255,255,255,0.12)' }}>
-                                      Perso
-                                    </span>
+                                    <Badge color="#cbd5e1">Perso</Badge>
                                   )}
                                   {s.size && (
-                                    <span className="text-xs px-2 py-0.5 rounded-full font-semibold shrink-0"
-                                      style={{ background:'rgba(255,255,255,0.06)', color:'rgba(255,255,255,0.6)', border:'1px solid rgba(255,255,255,0.08)' }}>
-                                      {s.size}
-                                    </span>
+                                    <Badge color="#94a3b8">{s.size}</Badge>
                                   )}
                                 </div>
                                 <p className="text-xs text-white/55 mt-0.5">
@@ -162,26 +151,23 @@ export default function SalesList({ sales, byMonthDesc, selectedMonth, setSelect
                                     ×{(s.salePrice / (s.purchasePrice || 1)).toFixed(1)}
                                   </span>
                                 )}
-                                <div className="flex gap-1">
-                                  <button onClick={() => setPersonal([s.id], !s.isPersonal)}
-                                    title={s.isPersonal ? "Ce n'est plus un article perso" : "Marquer comme article perso (pas d'achat)"}
-                                    className={`px-2 min-h-[32px] rounded-lg text-xs font-bold transition ${s.isPersonal ? 'text-indigo-300 bg-indigo-500/15' : 'text-white/55 hover:text-indigo-300 hover:bg-indigo-500/10'}`}>
+                                <div className="flex gap-1 flex-wrap justify-end">
+                                  <Button variant={s.isPersonal ? 'primary' : 'ghost'} className="!px-3 !text-xs" onClick={() => setPersonal([s.id], !s.isPersonal)}
+                                    title={s.isPersonal ? "Ce n'est plus un article perso" : "Marquer comme article perso (pas d'achat)"}>
                                     Perso
-                                  </button>
-                                  <button onClick={() => openEdit(s)}
-                                    className="p-1.5 rounded-lg text-white/55 hover:text-indigo-400 hover:bg-indigo-500/10 transition">
+                                  </Button>
+                                  <Button icon variant="ghost" onClick={() => openEdit(s)} title="Modifier la vente" aria-label="Modifier la vente">
                                     <Pencil className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button onClick={() => setDeleteId(s.id)}
-                                    className="p-1.5 rounded-lg text-white/55 hover:text-red-400 hover:bg-red-500/10 transition">
+                                  </Button>
+                                  <Button icon variant="danger" onClick={() => setDeleteId(s.id)} title="Supprimer la vente" aria-label="Supprimer la vente">
                                     <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                  </Button>
                                 </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </Card>
                     );
                   })}
                 </div>

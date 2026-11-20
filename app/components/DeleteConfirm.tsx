@@ -1,13 +1,15 @@
 'use client';
 
+import { Button } from './ui';
 import type { Dispatch, SetStateAction } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import type { Sale } from '../lib/sales';
+import { purchaseIdOfSale } from '../lib/sellArticle';
 
 // Confirmation de suppression d'une vente (retour arrière si la base refuse).
-export default function DeleteConfirm({ deleteId, setDeleteId, sales, setSales }: {
+export default function DeleteConfirm({ deleteId, setDeleteId, sales, setSales, onDeleted }: {
   deleteId: string; setDeleteId: (id: string | null) => void;
-  sales: Sale[]; setSales: Dispatch<SetStateAction<Sale[]>>;
+  sales: Sale[]; setSales: Dispatch<SetStateAction<Sale[]>>; onDeleted?: () => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:px-4 animate-fade-in">
@@ -17,12 +19,8 @@ export default function DeleteConfirm({ deleteId, setDeleteId, sales, setSales }
         <h3 className="font-bold text-white text-base mb-2">Supprimer cette vente ?</h3>
         <p className="text-sm text-white/55 mb-6">Cette action est irréversible.</p>
         <div className="flex gap-3">
-          <button onClick={() => setDeleteId(null)}
-            className="flex-1 py-3 rounded-xl font-semibold text-sm text-white/60 hover:text-white transition"
-            style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>
-            Annuler
-          </button>
-          <button onClick={async () => {
+          <Button onClick={() => setDeleteId(null)} className="flex-1">Annuler</Button>
+          <Button variant="danger" onClick={async () => {
             const id = deleteId;
             const removed = sales.find(s => s.id === id);
             setSales(p => p.filter(s => s.id !== id));
@@ -35,12 +33,15 @@ export default function DeleteConfirm({ deleteId, setDeleteId, sales, setSales }
                   ? 'Suppression impossible : ' + error.message
                   : "Suppression bloquée par la base (policy RLS DELETE manquante sur la table « sales »). Ajoute-la dans Supabase.",
               );
+              return;
             }
+            // T-034.3 : vente d'un article du stock supprimée depuis Ventes → l'article revient en stock.
+            const pid = purchaseIdOfSale(id);
+            if (pid) { await supabase.from('purchases').update({ status: 'en_stock' }).eq('id', pid).eq('status', 'vendu'); onDeleted?.(); }
           }}
-            className="flex-1 py-3 rounded-xl font-semibold text-sm transition"
-            style={{ background:'rgba(248,113,113,0.12)', border:'1px solid rgba(248,113,113,0.25)', color:'#fca5a5' }}>
+            className="flex-1">
             Supprimer
-          </button>
+          </Button>
         </div>
       </div>
     </div>

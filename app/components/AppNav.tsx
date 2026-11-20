@@ -29,14 +29,10 @@ function Logo() {
   );
 }
 
-const Badge = ({ n }: { n: number }) => n > 0 ? (
-  <span className="px-1.5 py-0.5 rounded-full text-xs font-bold text-white" style={{ background:'#10b981' }}>{n}</span>
-) : null;
-
 // Navigation : barre latérale (écran ≥ 768 px) ; barre d'onglets en bas + bouton « + » flottant (mobile).
 // Import/export CSV et déconnexion sont dans Réglages.
-export default function AppNav({ tab, setTab, toLink, openForm, onOpenSettings }: {
-  tab: Tab; setTab: (t: Tab) => void; toLink: number; openForm: () => void; onOpenSettings: () => void;
+export default function AppNav({ tab, setTab, openForm, onOpenSettings }: {
+  tab: Tab; setTab: (t: Tab) => void; openForm: () => void; onOpenSettings: () => void;
 }) {
   return (
     <>
@@ -45,24 +41,23 @@ export default function AppNav({ tab, setTab, toLink, openForm, onOpenSettings }
         style={{ paddingLeft:'max(0.75rem, env(safe-area-inset-left))', width:'calc(14rem + env(safe-area-inset-left))', background:'rgba(11,12,20,0.92)', borderRight:'1px solid rgba(255,255,255,0.06)' }}>
         <div className="px-2 mb-6"><Logo /></div>
         <button onClick={openForm}
-          className="flex items-center justify-center gap-1.5 px-4 py-2.5 mb-5 rounded-xl font-bold text-sm text-white active:scale-[0.97] transition-all"
+          className="flex items-center justify-center gap-1.5 px-4 min-h-[44px] mb-5 rounded-xl font-bold text-sm text-white active:scale-[0.97] transition-all"
           style={{ background: GRAD, boxShadow:'0 4px 18px rgba(99,102,241,0.4)' }}>
           <Plus className="w-4 h-4" /> Vente manuelle
         </button>
         <nav className="flex flex-col gap-1">
           {TABS.map(({ id, label, Icon }) => (
             <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? 'page' : undefined}
-              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-left"
+              className="flex items-center gap-2.5 px-3 min-h-[44px] rounded-xl text-sm font-semibold transition-all text-left"
               style={tab === id
                 ? { background: GRAD, color:'#fff', boxShadow:'0 2px 12px rgba(99,102,241,0.35)' }
                 : { color:'rgba(255,255,255,0.45)' }}>
               <Icon className="w-4 h-4" />{label}
-              {id === 'aujourdhui' && <span className="ml-auto"><Badge n={toLink} /></span>}
             </button>
           ))}
         </nav>
         <button onClick={onOpenSettings}
-          className="mt-auto flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/60 hover:text-white/80 transition-all">
+          className="mt-auto flex items-center gap-2.5 px-3 min-h-[44px] rounded-xl text-sm font-semibold text-white/60 hover:text-white/80 transition-all">
           <Settings className="w-4 h-4" />Réglages
         </button>
       </aside>
@@ -92,9 +87,6 @@ export default function AppNav({ tab, setTab, toLink, openForm, onOpenSettings }
             className="relative flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] rounded-xl text-xs font-semibold transition-all"
             style={{ color: tab === id ? '#a5b4fc' : 'rgba(255,255,255,0.6)' }}>
             <Icon className="w-5 h-5" />{label}
-            {id === 'aujourdhui' && toLink > 0 && (
-              <span className="absolute top-0.5 left-1/2 ml-2 px-1.5 rounded-full text-xs font-bold text-white" style={{ background:'#10b981' }}>{toLink}</span>
-            )}
           </button>
         ))}
       </nav>

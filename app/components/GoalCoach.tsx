@@ -3,6 +3,7 @@
 import { Target, CalendarDays } from 'lucide-react';
 import { fmtPlain } from '../lib/sales';
 import type { Goal } from '../lib/stats';
+import { Card, Badge } from './ui';
 
 // ── Barre de progression d'objectif (avec repère de régularité) ────────────
 
@@ -83,15 +84,12 @@ export default function GoalCoach({ goal, goalMonth, setGoalMonth }: {
         ? `✓ En ${sel.label}, tu as tenu ton quota de régularité. Beau mois !`
         : `En ${sel.label}, tu es resté sous ta moyenne : ${sel.count} vente${sel.count > 1 ? 's' : ''} et ${fmtPlain(sel.revenue)}.`);
   return (
-    <div className="rounded-2xl px-4 sm:px-6 py-5"
+    <Card className="px-4 sm:px-6 py-5"
       style={{ background: 'linear-gradient(135deg,rgba(16,185,129,0.10),rgba(99,102,241,0.08))', border: '1px solid rgba(16,185,129,0.2)' }}>
       <div className="flex items-center gap-2 mb-1 flex-wrap">
         <Target className="w-4 h-4 text-emerald-400" />
         <p className="text-sm font-bold text-white">Objectif de vente</p>
-        <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-          style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7', border: '1px solid rgba(16,185,129,0.2)' }}>
-          quota = ta moyenne
-        </span>
+        <Badge color="#6ee7b7">quota = ta moyenne</Badge>
       </div>
       <p className="text-xs text-white/55 leading-relaxed mb-1">
         Ton quota minimum de régularité = ta moyenne sur tes {goal.monthsCount} mois&nbsp;:
@@ -107,7 +105,7 @@ export default function GoalCoach({ goal, goalMonth, setGoalMonth }: {
           const active = m.key === selKey;
           return (
             <button key={m.key} onClick={() => setGoalMonth(m.key)}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+              className="shrink-0 flex items-center gap-1.5 px-3 min-h-[44px] rounded-lg text-xs font-semibold transition-colors"
               style={active
                 ? { background: 'rgba(16,185,129,0.18)', color: '#fff', border: '1px solid rgba(16,185,129,0.4)' }
                 : { background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -146,6 +144,6 @@ export default function GoalCoach({ goal, goalMonth, setGoalMonth }: {
           </p>
         </>
       )}
-    </div>
+    </Card>
   );
 }

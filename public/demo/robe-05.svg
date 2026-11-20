@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="540" viewBox="0 0 400 540">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#1e3a8a"/></linearGradient></defs>
+  <rect width="400" height="540" fill="#f3f1ee"/>
+  <ellipse cx="200" cy="500" rx="150" ry="14" fill="#00000014"/>
+  <path d="M150 70 L130 80 L118 150 L135 155 L128 200 L82 470 L318 470 L272 200 L265 155 L282 150 L270 80 L250 70 Q200 110 150 70 Z" fill="url(#g)" stroke="#00000033" stroke-width="3"/>
+  <text x="200" y="525" font-family="Arial, sans-serif" font-size="16" text-anchor="middle" fill="#00000066">démo · robe-05</text>
+</svg>

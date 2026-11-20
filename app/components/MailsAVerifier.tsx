@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { MailWarning, Check } from 'lucide-react';
+import { Button, Card } from './ui';
 import { supabase } from '../lib/supabaseClient';
 
 /**
@@ -31,7 +32,8 @@ export default function MailsAVerifier({ userId, refreshKey }: { userId: string;
       .order('last_seen_at', { ascending: false }).limit(50)
       .then(({ data, error }) => {
         if (!alive) return;
-        setMails(error ? [] : ((data ?? []) as MailReject[])); // table absente → rien à afficher
+        // T-034.3 : seuls les mails Shein ratés sont à vérifier (d'anciens rejets Vinted peuvent rester en base, non affichés).
+        setMails(error ? [] : ((data ?? []) as MailReject[]).filter((m) => /shein/i.test(m.reason || ''))); // table absente → rien à afficher
       });
     return () => { alive = false; };
   }, [userId, refreshKey]);
@@ -49,8 +51,8 @@ export default function MailsAVerifier({ userId, refreshKey }: { userId: string;
   if (mails.length === 0) return null;
 
   return (
-    <div className="rounded-2xl overflow-hidden"
-      style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)' }}>
+    <Card className="overflow-hidden" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)' }}>
+
       <div className="px-4 sm:px-5 py-3 flex items-center gap-2" style={{ background: 'rgba(245,158,11,0.12)' }}>
         <MailWarning className="w-4 h-4 text-amber-300" />
         <span className="text-sm font-bold text-white">
@@ -73,14 +75,12 @@ export default function MailsAVerifier({ userId, refreshKey }: { userId: string;
                 {m.reason}{m.missing && m.missing.length ? ` (manque : ${m.missing.join(', ')})` : ''}
               </p>
             </div>
-            <button onClick={() => markSeen(m.id)} disabled={busy === m.id} title="Retirer de la liste"
-              className="shrink-0 flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg font-semibold text-sm text-white/60 hover:text-white transition-all disabled:opacity-40"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <Check className="w-3.5 h-3.5" /> Vu
-            </button>
+            <Button onClick={() => markSeen(m.id)} disabled={busy === m.id} title="Retirer de la liste" className="shrink-0">
+              <Check className="w-4 h-4" /> Vu
+            </Button>
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }

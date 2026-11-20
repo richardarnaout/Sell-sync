@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { importMail, resolveUserId, secretFromHeaders, secretMatches, type ImportDeps, type MailInput } from '../../../lib/importMail';
 import { createAdminSupabase } from '../../../lib/supabaseAdmin';
-import { extractFromEmail } from '../../../lib/extract';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,9 +9,9 @@ export const maxDuration = 60;
 /**
  * Webhook appelé par l'Apps Script de chaque Gmail (apps-script/Code.gs).
  * POST { account, messageId, subject, body, receivedDate, html?, from?, hint? }  + en-tête x-import-secret.
- * Vinted finalisée → `pending_sales` ; Vinted « s'est vendu » → `vinted_sold_notices` (vraie date) ;
- * Shein confirmation → `purchases` (une ligne par unité). Anti-doublon par contraintes uniques
- * (supabase/import-mail.sql puis supabase/achats-shein.sql).
+ * T-034.2 : seule la confirmation de commande Shein est importée → `purchases` (une ligne par unité,
+ * anti-doublon par contraintes uniques, supabase/achats-shein.sql). Les mails Vinted répondent 200 `ignored`
+ * sans rien écrire ni appeler Gemini (le script pose quand même le libellé : ils ne reviennent pas).
  * Réponses 200 : inserted | duplicate | ignored (le script pose alors le libellé SellSync).
  * 422 = mail non reconnu (le script ne pose pas le libellé et réessaiera) ; noté dans `mail_rejects`
  * (supabase/mails-non-reconnus.sql) pour l'encart « Mails à vérifier » de l'app.
@@ -105,6 +104,13 @@ export async function POST(req: NextRequest) {
       if (error.code === '23505') return 'duplicate';
       throw new Error(error.message);
     },
+    // Achat déjà importé sans photo (avant T-033) : on pose la photo, sans écraser une photo existante.
+    fillPurchasePhoto: async (row) => {
+      const { error } = await createAdminSupabase().from('purchases').update({ photo_url: row.photo_url })
+        .eq('user_id', row.user_id).eq('order_number', row.order_number).eq('sku', row.sku)
+        .eq('unit_index', row.unit_index).is('photo_url', null);
+      if (error) throw new Error(error.message);
+    },
     // Mail non reconnu (422) → table mail_rejects (supabase/mails-non-reconnus.sql), visible dans l'app.
     recordUnparsed: async (row) => {
       const { error } = await createAdminSupabase().rpc('noter_mail_rejete', {
@@ -113,17 +119,7 @@ export async function POST(req: NextRequest) {
       });
       if (error) throw new Error(error.message);
     },
-    aiFallback: process.env.GOOGLE_GENERATIVE_AI_API_KEY
-      ? async (subject, body, receivedDate) => {
-          const r = await extractFromEmail(subject, body, receivedDate);
-          const it = r.kind === 'vente' ? r.items[0] : undefined;
-          if (!it || !it.article || !(it.price > 0)) return null;
-          return {
-            article: it.article, size: it.size ?? '', color: it.color ?? '', price: it.price,
-            date: r.date ?? receivedDate, transactionNumber: (r.orderNumber ?? '').match(/\d{6,}/)?.[0] ?? '',
-          };
-        }
-      : undefined,
+    // T-034.2 : plus de secours Gemini (il ne servait qu'aux mails Vinted, désormais ignorés).
   };
 
   try {

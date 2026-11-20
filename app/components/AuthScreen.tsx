@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Card, Field } from './ui';
 import { ShoppingBag, AlertCircle, CheckCircle } from 'lucide-react';
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
@@ -52,23 +53,22 @@ export default function AuthScreen() {
         </div>
 
         {/* Card */}
-        <div className="rounded-2xl p-6" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)' }}>
+        <Card className="p-6">
           {signupDone ? (
             <div className="text-center py-4">
               <CheckCircle className="w-10 h-10 text-green-400 mx-auto mb-3" />
               <p className="text-white font-semibold mb-1">Compte créé !</p>
               <p className="text-white/60 text-sm">Vérifie ta boîte mail pour confirmer, puis connecte-toi.</p>
-              <button onClick={() => { setMode('login'); setSignupDone(false); }}
-                className="mt-4 text-xs text-indigo-400 hover:text-indigo-300 transition">
+              <Button variant="primary" onClick={() => { setMode('login'); setSignupDone(false); }} className="mt-4">
                 Aller à la connexion
-              </button>
+              </Button>
             </div>
           ) : (
             <>
               <div className="flex gap-1 p-1 rounded-xl mb-5" style={{ background:'rgba(255,255,255,0.04)' }}>
                 {(['login','signup'] as const).map(m => (
                   <button key={m} onClick={() => { setMode(m); setError(''); }}
-                    className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+                    className="flex-1 min-h-[44px] rounded-lg text-xs font-semibold transition-all"
                     style={mode === m
                       ? { background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#fff' }
                       : { color:'rgba(255,255,255,0.6)' }}>
@@ -78,18 +78,18 @@ export default function AuthScreen() {
               </div>
 
               <div className="space-y-3">
-                <input
+                <Field label="Email"><input
                   type="email" placeholder="Email" value={email}
                   onChange={e => setEmail(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && submit()}
                   className="field-input w-full rounded-xl px-4 py-3 text-sm"
-                />
-                <input
+                /></Field>
+                <Field label="Mot de passe"><input
                   type="password" placeholder="Mot de passe" value={password}
                   onChange={e => setPassword(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && submit()}
                   className="field-input w-full rounded-xl px-4 py-3 text-sm"
-                />
+                /></Field>
               </div>
 
               {error && (
@@ -99,16 +99,14 @@ export default function AuthScreen() {
                 </div>
               )}
 
-              <button onClick={submit} disabled={loading}
-                className="w-full mt-4 py-3.5 rounded-xl font-bold text-sm text-white transition active:scale-[0.97] disabled:opacity-60"
-                style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', boxShadow:'0 4px 18px rgba(99,102,241,0.4)' }}>
+              <Button variant="primary" onClick={submit} disabled={loading} className="w-full mt-4">
                 {loading ? (
                   <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : mode === 'login' ? 'Se connecter' : 'Créer le compte'}
-              </button>
+              </Button>
             </>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

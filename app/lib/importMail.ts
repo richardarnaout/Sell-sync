@@ -4,11 +4,12 @@ import { parseSheinOrder, isSheinOrderMail, type SheinOrder } from './parseShein
 import { matchScore, uniqueMatch, noticeWindow, saleWindow, type MatchSide } from './matchSale';
 
 /**
- * Logique du webhook, sans dépendance réseau. Trois sortes de mails :
- *  - Vinted « transaction finalisée » → vente en attente (pending_sales) ;
- *  - Vinted « Ton article s'est vendu » → avis de vente (vinted_sold_notices) qui fixe la vraie date ;
- *  - Shein « Confirmation de votre commande » → stock (purchases), une ligne par unité.
- * la base et Gemini sont injectés (`deps`), ce qui permet de la tester avec des faux.
+ * Logique du webhook, sans dépendance réseau.
+ * T-034.2 : SellSync n'importe plus que les commandes Shein → stock (purchases), une ligne par unité.
+ * Les mails Vinted (« transaction finalisée », « Ton article s'est vendu ») sont reconnus puis IGNORÉS :
+ * aucune écriture (ni pending_sales ni vinted_sold_notices), aucun appel Gemini, rien dans « Mails à vérifier ».
+ * L'ancien traitement Vinted reste dans `legacyImportVinted` (non appelé par le webhook, gardé pour retour arrière).
+ * La base et Gemini sont injectés (`deps`), ce qui permet de tester avec des faux.
  */
 
 export interface MailInput {
@@ -104,6 +105,8 @@ export interface ImportDeps {
   /** Cas inverse (« finalisée » traité avant « s'est vendu ») : pose la vraie date (seulement si encore approximative). */
   setPendingDate?: (pendingId: string, date: string) => Promise<boolean>;
   insertPurchase?: (row: PurchaseRow) => Promise<'inserted' | 'duplicate'>;
+  /** Achat déjà en base sans photo : pose la photo (seulement si photo_url est vide). T-033. */
+  fillPurchasePhoto?: (row: PurchaseRow) => Promise<void>;
   /** Note un mail non reconnu (422) pour l'encart « à vérifier » de l'app. Un échec ici ne change pas la réponse. */
   recordUnparsed?: (row: UnparsedRow) => Promise<void>;
   /** Secours Gemini, absent si la clé n'est pas configurée. */
@@ -190,13 +193,30 @@ export async function importMail(m: MailInput, userId: string, deps: ImportDeps)
   return out;
 }
 
+/** Raison renvoyée pour tout mail Vinted depuis T-034.2. */
+export const VINTED_IGNORED_REASON = "mail Vinted ignoré : SellSync n'importe plus que les commandes Shein (prix de vente saisi à la main)";
+
 async function importByKind(m: MailInput, userId: string, deps: ImportDeps): Promise<ImportOutcome> {
   const kind = detectKind(m);
+  if (kind === 'shein_order') return importShein(m, userId, deps);
   // Trouvé par la recherche Gmail Shein mais pas reconnu : 422 (noté dans « Mails à vérifier »), pas ignoré en silence.
   if (!kind && m.hint === 'shein') return { status: 'unparsed', reason: 'mail Shein non reconnu comme confirmation de commande' };
+  // T-034.2 : Vinted reconnu (ou trouvé par une recherche Vinted) → ignoré, avant tout découpage : zéro écriture, zéro Gemini.
+  if (kind === 'vinted_finalized' || kind === 'vinted_sold' || m.hint === 'vendu' || m.hint === 'finalise') {
+    return { status: 'ignored', reason: VINTED_IGNORED_REASON };
+  }
+  return { status: 'ignored', reason: 'mail non reconnu (pas une commande Shein)' };
+}
+
+/**
+ * Ancien traitement des mails Vinted (T-021 à T-031) : vente en attente (pending_sales) et avis
+ * « s'est vendu » (vinted_sold_notices). N'est plus appelé par le webhook depuis T-034.2 ;
+ * gardé (et testé) pour un éventuel retour arrière.
+ */
+export async function legacyImportVinted(m: MailInput, userId: string, deps: ImportDeps): Promise<ImportOutcome> {
+  const kind = detectKind(m);
   if (kind === 'vinted_sold') return importSold(m, userId, deps);
-  if (kind === 'shein_order') return importShein(m, userId, deps);
-  if (kind !== 'vinted_finalized') return { status: 'ignored', reason: 'mail non reconnu (ni Vinted finalisée / vendu, ni commande Shein)' };
+  if (kind !== 'vinted_finalized') return { status: 'ignored', reason: 'mail non reconnu (ni Vinted finalisée / vendu)' };
 
   let via: 'parser' | 'gemini' = 'parser';
   let sale: VintedSale | null = null;
@@ -304,14 +324,26 @@ async function importShein(m: MailInput, userId: string, deps: ImportDeps): Prom
   let duplicates = 0;
   for (const it of o.items) {
     for (let u = 1; u <= it.quantity; u++) {
-      const r = await deps.insertPurchase({
+      const row: PurchaseRow = {
         user_id: userId, date: o.date, article: it.article || it.name, model: it.model || null,
         color: it.color || null, size: it.size || null, purchase_price: it.unitPrice,
         sku: it.sku, order_number: o.orderNumber, unit_index: u, photo_url: it.photoUrl || null,
         source_account: m.account.toLowerCase(), status: 'en_stock',
-      });
+      };
+      const r = await deps.insertPurchase(row);
       if (r === 'inserted') inserted++;
-      else duplicates++;
+      else {
+        duplicates++;
+        // Ré-import du même mail : rattrape la photo des achats importés avant T-033 (photo_url vide).
+        // T-034.2 (B3) : un échec ici est journalisé et n'interrompt pas l'import (pas de 500 pour un ré-import).
+        if (it.photoUrl && deps.fillPurchasePhoto) {
+          try {
+            await deps.fillPurchasePhoto(row);
+          } catch (e) {
+            console.error(`photo non rattrapée (commande ${row.order_number}, SKU ${row.sku}, unité ${row.unit_index}) :`, e instanceof Error ? e.message : e);
+          }
+        }
+      }
     }
   }
   return { status: inserted ? 'inserted' : 'duplicate', kind: 'shein_order', order: o, inserted, duplicates };
